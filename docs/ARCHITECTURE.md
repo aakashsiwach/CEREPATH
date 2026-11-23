@@ -50,7 +50,7 @@ FastAPI authenticates the owner, scopes conversation and memory queries by user 
 
 The intelligence layer exposes a small provider protocol and a shared OpenAI-compatible adapter. Supported hosted providers are Bynara and Google's Gemini Developer API; optional Ollama targets a local OpenAI-compatible endpoint. Gemini uses Google's documented `/v1beta/openai/chat/completions` compatibility path and Bearer API-key authentication. Only one provider is selected per API process; no automatic fallback is performed. Provider keys are read from the server environment and are not stored in PostgreSQL.
 
-Chat requests store the user message before calling the provider, then persist the assistant reply and provider/model metadata. Failed provider calls leave a failed user-message record rather than silently losing the prompt. The model receives a bounded recent conversation and a bounded set of approved memories. Memory retrieval is lexical in this release; pgvector embeddings are not yet generated.
+Chat requests store the user message before calling the provider, then persist the assistant reply and provider/model metadata. Failed provider calls leave a failed user-message record rather than silently losing the prompt. The model receives a bounded recent conversation. Approved memories are retrieved only for local Ollama by default; hosted-provider memory sharing requires the explicit `REMOTE_PROVIDER_MEMORY_SHARING=true` setting and includes only lexically matching approved memories. There is no unrelated-recent-memory fallback. Memory retrieval is lexical in this release; pgvector embeddings are not yet generated.
 
 ## Database
 

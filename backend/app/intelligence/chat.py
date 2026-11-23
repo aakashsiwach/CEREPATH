@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from ..config import REMOTE_PROVIDER_MEMORY_SHARING
 from ..db import connection
 from ..schemas import ChatInput
 from ..security import require_owner
@@ -50,7 +51,7 @@ def _terms(value: str) -> set[str]:
 
 
 def _select_memories(rows: list[dict[str, Any]], query: str) -> list[dict[str, str]]:
-    """Select only approved, user-owned memories; v1 uses bounded lexical matching."""
+    """Select only approved, user-owned memories that lexically match the query."""
     terms = _terms(query)
     scored: list[tuple[int, int, dict[str, Any]]] = []
     for index, row in enumerate(rows):
@@ -59,10 +60,7 @@ def _select_memories(rows: list[dict[str, Any]], query: str) -> list[dict[str, s
         if score:
             scored.append((score, -index, row))
 
-    selected = (
-        [item[2] for item in sorted(scored, reverse=True)[:_MEMORY_LIMIT]]
-        if scored else rows[:3]
-    )
+    selected = [item[2] for item in sorted(scored, reverse=True)[:_MEMORY_LIMIT]]
     result: list[dict[str, str]] = []
     used_chars = 0
     for row in selected:
@@ -154,6 +152,9 @@ def chat(
     if isinstance(provider, DisabledModelProvider):
         raise HTTPException(status_code=503, detail=provider.reason)
 
+    # Ollama is the local provider. Hosted providers receive approved memories
+    # only when the owner explicitly opts in through server configuration.
+    share_memory_context = provider.name == "ollama" or REMOTE_PROVIDER_MEMORY_SHARING
     conversation_id = body.conversation_id or uuid4()
     user_message_id = uuid4()
     title = " ".join(body.message.split())[:80] or "New conversation"
@@ -203,20 +204,26 @@ def chat(
             """,
             (conversation_id, user_id, _HISTORY_LIMIT),
         ).fetchall()
-        memory_rows = conn.execute(
-            """
-            SELECT category, title, content
-            FROM memories
-            WHERE user_id = %s
-            ORDER BY updated_at DESC
-            LIMIT 100
-            """,
-            (user_id,),
-        ).fetchall()
+
+        memory_rows = []
+        if share_memory_context:
+            memory_rows = conn.execute(
+                """
+                SELECT category, title, content
+                FROM memories
+                WHERE user_id = %s
+                ORDER BY updated_at DESC
+                LIMIT 100
+                """,
+                (user_id,),
+            ).fetchall()
 
     history = [dict(row) for row in history_rows]
     memory_query = " ".join(str(item.get("content", "")) for item in history[-6:])
-    memories = _select_memories([dict(row) for row in memory_rows], memory_query)
+    memories = (
+        _select_memories([dict(row) for row in memory_rows], memory_query)
+        if share_memory_context else []
+    )
     model_messages = _system_messages(memories) + [
         {"role": item["role"], "content": item["content"]}
         for item in history

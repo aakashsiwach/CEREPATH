@@ -16,6 +16,7 @@ Cerepath is a local-first personal AI workspace built around user-owned identity
 - OpenAI-compatible Google Gemini Developer API adapter.
 - Optional local Ollama through its OpenAI-compatible API.
 - Approved-memory retrieval for chat context (bounded lexical matching in this version).
+- Hosted providers receive no approved memories by default; matching memory sharing requires explicit server-side opt-in. Local Ollama can use matching approved memories.
 - No automatic provider fallback; a missing or failing provider returns an explicit error.
 - Memory add/update/delete still require your approval.
 - Read-only Playwright browser, HTTPS-only navigation and CONNECT egress proxy with DNS validation/IP pinning.
@@ -25,6 +26,14 @@ Cerepath is a local-first personal AI workspace built around user-owned identity
 The API key belongs in the server-side `.env` file only. Never paste it into frontend code, chat, an issue, or a commit.
 
 Select exactly one provider with `AI_PROVIDER`: `bynara`, `gemini`, `ollama`, or `disabled`. The application never silently falls back to another service.
+
+Approved memories stay local when using hosted providers unless you explicitly opt in:
+
+```dotenv
+REMOTE_PROVIDER_MEMORY_SHARING=false
+```
+
+Set this to `true` only when you accept sending matching approved memories to the selected hosted provider. The application never falls back to unrelated recent memories. This setting controls approved-memory context only; your current prompt and bounded conversation history are still sent to the selected provider. Local Ollama can use matching approved memories without this remote-sharing opt-in.
 
 ### Google Gemini Developer API
 
@@ -40,7 +49,7 @@ AI_HTTP_PROXY=http://egress-proxy:3128
 
 Cerepath uses Google's documented OpenAI-compatible Chat Completions endpoint at `/v1beta/openai/chat/completions` and sends the key as a Bearer token. The API container routes Gemini HTTPS requests through the restricted CONNECT egress proxy.
 
-The Gemini Developer API free tier offers free input/output tokens for selected models, subject to model access and rate limits. Free-tier content may be used by Google to improve its products. **Do not send private memories, confidential information, credentials or sensitive personal data through a free-tier Gemini key.** Review Google's current [pricing](https://ai.google.dev/gemini-api/docs/pricing) and [terms](https://ai.google.dev/gemini-api/terms) before enabling it. Paid-tier data handling differs; verify the terms for your actual account tier.
+The Gemini Developer API free tier offers free input/output tokens for selected models, subject to model access and rate limits. Free-tier content may be used by Google to improve its products. Cerepath keeps approved memories out of hosted Gemini requests by default; enabling `REMOTE_PROVIDER_MEMORY_SHARING=true` sends only matching approved memories. Your prompt and bounded conversation history are still sent. Do not send confidential information, credentials or sensitive personal data through a free-tier Gemini key. Review Google's current [pricing](https://ai.google.dev/gemini-api/docs/pricing) and [terms](https://ai.google.dev/gemini-api/terms) before enabling it. Paid-tier data handling differs; verify the terms for your actual account tier.
 
 ### Bynara
 

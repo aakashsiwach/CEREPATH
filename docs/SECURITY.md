@@ -24,8 +24,10 @@ An approval is one-time and payload-specific. It cannot authorize a different pa
 - Only one configured model provider is active; there is no automatic paid-provider fallback.
 - Bynara and Gemini HTTPS requests use the CONNECT-only egress proxy, which validates DNS results and pins the upstream TCP connection to public IPs on port 443.
 - Optional Ollama requests target a local host runtime and bypass the public proxy.
-- When Bynara or Gemini is enabled, current chat text, bounded recent conversation history and up to eight relevant approved memories can be sent to the selected provider.
-- Gemini Developer API free-tier content may be used by Google to improve its products. Do not send private memories, confidential information or credentials through a free-tier Gemini key. Review the provider's current terms and pricing before enabling it.
+- When Bynara or Gemini is enabled, the current prompt and bounded recent conversation history are sent to the selected provider.
+- Approved memories are not queried or sent to hosted providers by default. Setting `REMOTE_PROVIDER_MEMORY_SHARING=true` explicitly opts in to sending only lexically matching approved memories (up to eight, bounded by a context character limit). Unrelated recent memories are never used as a fallback.
+- Local Ollama can receive matching approved memories without enabling remote sharing because requests remain on the configured local runtime.
+- Gemini Developer API free-tier content may be used by Google to improve its products. Even with memory sharing disabled, do not send confidential information, credentials or sensitive personal data in prompts or conversation history through a free-tier Gemini key. Review the provider's current terms and pricing before enabling it.
 - Browser uses a disposable context without retained cookies.
 - Browser allows HTTPS on port 443 only and aborts non-GET requests.
 - Browser container runs as non-root with Chromium sandbox, read-only filesystem, dropped capabilities, resource limits and seccomp.
