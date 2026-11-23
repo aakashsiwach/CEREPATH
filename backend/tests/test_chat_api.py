@@ -33,6 +33,14 @@ def test_memory_context_is_marked_as_reference_data():
     assert "Backend engineer" in messages[1]["content"]
 
 
+def test_memory_context_never_falls_back_to_unrelated_recent_records():
+    rows = [
+        {"category": "personal", "title": "Home", "content": "Lives near a park."},
+        {"category": "finance", "title": "Budget", "content": "Tracks monthly expenses."},
+    ]
+    assert chat_module._select_memories(rows, "Explain database indexing") == []
+
+
 class Cursor:
     def __init__(self, row=None, rows=None):
         self.row = row
@@ -54,6 +62,7 @@ class ChatDatabase:
             "title": "Banking project",
             "content": "Worked on card payment processing.",
         }]
+        self.memory_reads = 0
 
     def execute(self, query, params=(), **_kwargs):
         normalized = " ".join(query.split()).lower()
@@ -116,6 +125,7 @@ class ChatDatabase:
 
         if normalized.startswith("select category, title, content from memories"):
             user_id, = params
+            self.memory_reads += 1
             return Cursor(rows=self.memories)
 
         if normalized.startswith("update chat_messages set status = 'complete'"):
@@ -151,11 +161,21 @@ class ChatDatabase:
 
 
 class FakeProvider:
-    name = "bynara"
-    model = "gpt-5.6-luna"
+    model = "test-model"
+
+    def __init__(self, *, name="bynara", expect_memory=True):
+        self.name = name
+        self.expect_memory = expect_memory
+        self.messages = []
 
     async def complete(self, messages):
-        assert any("Banking project" in item["content"] for item in messages)
+        self.messages = list(messages)
+        has_memory_context = any("APPROVED_MEMORY_JSON" in item["content"] for item in messages)
+        assert has_memory_context is self.expect_memory
+        if self.expect_memory:
+            assert any("Banking project" in item["content"] for item in messages)
+        else:
+            assert all("Banking project" not in item["content"] for item in messages)
         assert messages[-1] == {"role": "user", "content": "Help with payment processing"}
         return type("Reply", (), {
             "text": "Here is the answer.",
@@ -173,6 +193,7 @@ def test_chat_persists_messages_and_scopes_conversation_history(monkeypatch):
         yield database
 
     monkeypatch.setattr(chat_module, "connection", fake_connection)
+    monkeypatch.setattr(chat_module, "REMOTE_PROVIDER_MEMORY_SHARING", True)
     monkeypatch.setattr(chat_module, "build_model_provider", lambda: FakeProvider())
     main.app.dependency_overrides[chat_module.require_owner] = lambda: owner_id
     client = TestClient(main.app)
@@ -197,6 +218,58 @@ def test_chat_persists_messages_and_scopes_conversation_history(monkeypatch):
         conversation_list = client.get("/api/conversations")
         assert conversation_list.status_code == 200
         assert conversation_list.json()["items"][0]["id"] == conversation_id
+    finally:
+        main.app.dependency_overrides.clear()
+
+
+def test_remote_provider_does_not_read_memories_by_default(monkeypatch):
+    database = ChatDatabase()
+    owner_id = uuid4()
+    provider = FakeProvider(name="gemini", expect_memory=False)
+
+    @contextmanager
+    def fake_connection():
+        yield database
+
+    monkeypatch.setattr(chat_module, "connection", fake_connection)
+    monkeypatch.setattr(chat_module, "REMOTE_PROVIDER_MEMORY_SHARING", False)
+    monkeypatch.setattr(chat_module, "build_model_provider", lambda: provider)
+    main.app.dependency_overrides[chat_module.require_owner] = lambda: owner_id
+    client = TestClient(main.app)
+
+    try:
+        response = client.post("/api/chat", json={"message": "Help with payment processing"})
+        assert response.status_code == 200
+        assert response.json()["memory_context_items"] == 0
+        assert database.memory_reads == 0
+        assert all(
+            "Banking project" not in item["content"]
+            for item in provider.messages
+        )
+    finally:
+        main.app.dependency_overrides.clear()
+
+
+def test_local_provider_can_use_matching_memories_without_remote_opt_in(monkeypatch):
+    database = ChatDatabase()
+    owner_id = uuid4()
+    provider = FakeProvider(name="ollama", expect_memory=True)
+
+    @contextmanager
+    def fake_connection():
+        yield database
+
+    monkeypatch.setattr(chat_module, "connection", fake_connection)
+    monkeypatch.setattr(chat_module, "REMOTE_PROVIDER_MEMORY_SHARING", False)
+    monkeypatch.setattr(chat_module, "build_model_provider", lambda: provider)
+    main.app.dependency_overrides[chat_module.require_owner] = lambda: owner_id
+    client = TestClient(main.app)
+
+    try:
+        response = client.post("/api/chat", json={"message": "Help with payment processing"})
+        assert response.status_code == 200
+        assert response.json()["memory_context_items"] == 1
+        assert database.memory_reads == 1
     finally:
         main.app.dependency_overrides.clear()
 

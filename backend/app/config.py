@@ -18,3 +18,7 @@ APP_ENV = os.getenv("APP_ENV", "local").strip().lower()
 SESSION_TTL_HOURS = max(1, min(int(os.getenv("CEREPATH_SESSION_TTL_HOURS", "12")), 168))
 SESSION_COOKIE_NAME = "cerepath_session"
 RUN_DB_MIGRATIONS = os.getenv("RUN_DB_MIGRATIONS", "false").lower() in {"1", "true", "yes"}
+REMOTE_PROVIDER_MEMORY_SHARING = (
+    os.getenv("REMOTE_PROVIDER_MEMORY_SHARING", "false").strip().lower()
+    in {"1", "true", "yes", "on"}
+)
