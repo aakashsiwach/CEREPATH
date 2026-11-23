@@ -82,9 +82,9 @@ def health() -> dict:
 def login(body: BootstrapLogin, response: Response) -> dict:
     """Exchange the local bootstrap secret for a revocable, HTTP-only browser session."""
     if APP_ENV != "local":
-        raise HTTPException(status_code=http_status.NOT_FOUND, detail="Local bootstrap login is disabled")
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="Local bootstrap login is disabled")
     if not secrets.compare_digest(body.owner_token, CEREPATH_OWNER_TOKEN):
-        raise HTTPException(status_code=http_status.UNAUTHORIZED, detail="Invalid owner token")
+        raise HTTPException(status_code=http_status.HTTP_401_UNAUTHORIZED, detail="Invalid owner token")
 
     session_token = secrets.token_urlsafe(48)
     csrf_token = secrets.token_urlsafe(32)
@@ -95,7 +95,7 @@ def login(body: BootstrapLogin, response: Response) -> dict:
             (uuid.UUID(OWNER_USER_ID),),
         ).fetchone()
         if not owner:
-            raise HTTPException(status_code=http_status.SERVICE_UNAVAILABLE, detail="Owner identity is not provisioned")
+            raise HTTPException(status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE, detail="Owner identity is not provisioned")
         conn.execute(
             """
             INSERT INTO sessions (id, user_id, token_hash, csrf_token_hash, expires_at)
@@ -120,7 +120,7 @@ def current_session(user_id: UUID = Depends(require_owner)) -> dict:
             (user_id,),
         ).fetchone()
     if not user:
-        raise HTTPException(status_code=http_status.UNAUTHORIZED, detail="Owner identity is unavailable")
+        raise HTTPException(status_code=http_status.HTTP_401_UNAUTHORIZED, detail="Owner identity is unavailable")
     return {"authenticated": True, "user": _serialize(user)}
 
 
