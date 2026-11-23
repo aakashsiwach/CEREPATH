@@ -14,9 +14,9 @@ from .schemas import ApprovalCreate, ApprovalDecision, BrowserNavigate, ChatInpu
 from .security import require_owner
 
 app = FastAPI(
-    title="Aakash AI API",
-    version="0.1.0",
-    description="Local-first personal intelligence scaffold. No external model provider is configured.",
+    title="Cerepath API",
+    version="0.2.0",
+    description="Local-first, owner-controlled personal intelligence platform. No external model provider is configured.",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     redoc_url="/api/redoc",
@@ -37,7 +37,7 @@ def _serialize(row: dict) -> dict:
 
 @app.get("/api/health", tags=["system"])
 def health() -> dict:
-    return {"status": "ok", "service": "aakash-ai-api", "version": "0.1.0"}
+    return {"status": "ok", "service": "cerepath-api", "version": "0.2.0"}
 
 
 @app.get("/api/status", tags=["system"], dependencies=[Depends(require_owner)])
@@ -45,7 +45,7 @@ def status() -> dict:
     try:
         with connection() as conn:
             conn.execute("SELECT 1")
-    except Exception as exc:  # health detail is returned without leaking credentials
+    except Exception as exc:
         raise HTTPException(status_code=503, detail="Database is not ready") from exc
     return {
         "status": "ready",
@@ -53,7 +53,7 @@ def status() -> dict:
         "model_provider": None,
         "external_model_calls_enabled": False,
         "memory_write_policy": "owner_approval_required",
-        "browser_mode": "public_read_only",
+        "browser_mode": "https_read_only_via_egress_proxy",
     }
 
 
@@ -63,8 +63,8 @@ def chat(body: ChatInput) -> dict:
     return {
         "role": "assistant",
         "content": (
-            "Aakash AI's local foundation is running. The reasoning model is not connected yet, "
-            "so I have not sent this message to any external AI provider or saved it as memory. "
+            "Cerepath's local foundation is running. The reasoning model is not connected yet, "
+            "so this message was not sent to an external AI provider or saved as memory. "
             "The next milestone is the model adapter and reviewed personal knowledge ingestion."
         ),
         "received_characters": len(body.message),
@@ -116,7 +116,12 @@ def create_approval(body: ApprovalCreate) -> dict:
             "VALUES ('owner', 'approval.requested', 'approval', %s, %s::jsonb)",
             (str(approval_id), json.dumps({"action_type": body.action_type, "reason": body.reason})),
         )
-    return {"id": str(approval_id), "status": "pending", "action_type": body.action_type, "message": "Owner approval is required before this operation changes memory."}
+    return {
+        "id": str(approval_id),
+        "status": "pending",
+        "action_type": body.action_type,
+        "message": "Owner approval is required before this operation changes memory.",
+    }
 
 
 @app.post("/api/approvals/{approval_id}/decision", tags=["approvals"], dependencies=[Depends(require_owner)])
@@ -151,13 +156,21 @@ def decide_approval(approval_id: uuid.UUID, body: ApprovalDecision) -> dict:
             conn.execute(
                 "INSERT INTO memories (id, category, title, content, source, confidence, metadata) "
                 "VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb)",
-                (memory_id, payload.get("category", "general"), payload["title"], payload["content"],
-                 payload.get("source", "owner-approved"), payload.get("confidence", 0.9),
-                 json.dumps(payload.get("metadata", {}))),
+                (
+                    memory_id,
+                    payload.get("category", "general"),
+                    payload["title"],
+                    payload["content"],
+                    payload.get("source", "owner-approved"),
+                    payload.get("confidence", 0.9),
+                    json.dumps(payload.get("metadata", {})),
+                ),
             )
             resource_id = str(memory_id)
         elif action_type == "memory.update":
-            current = conn.execute("SELECT title, content FROM memories WHERE id=%s FOR UPDATE", (target_id,)).fetchone()
+            current = conn.execute(
+                "SELECT title, content FROM memories WHERE id=%s FOR UPDATE", (target_id,)
+            ).fetchone()
             if not current:
                 raise HTTPException(status_code=404, detail="Target memory no longer exists")
             title = payload.get("title", current["title"])
@@ -168,11 +181,13 @@ def decide_approval(approval_id: uuid.UUID, body: ApprovalDecision) -> dict:
             )
             resource_id = str(target_id)
         elif action_type == "memory.delete":
-            deleted = conn.execute("DELETE FROM memories WHERE id=%s RETURNING id", (target_id,)).fetchone()
+            deleted = conn.execute(
+                "DELETE FROM memories WHERE id=%s RETURNING id", (target_id,)
+            ).fetchone()
             if not deleted:
                 raise HTTPException(status_code=404, detail="Target memory no longer exists")
             resource_id = str(target_id)
-        else:  # Defense in depth: the schema and proposal validator also enforce this allowlist.
+        else:
             raise HTTPException(status_code=422, detail="Unsupported action")
 
         conn.execute(
@@ -182,15 +197,18 @@ def decide_approval(approval_id: uuid.UUID, body: ApprovalDecision) -> dict:
         conn.execute(
             "INSERT INTO audit_events (actor, action, resource_type, resource_id, details) "
             "VALUES ('owner', %s, 'memory', %s, %s::jsonb)",
-            (f"{action_type}.approved_and_executed", resource_id,
-             json.dumps({"approval_id": str(approval_id), "reason": approval["reason"]})),
+            (
+                f"{action_type}.approved_and_executed",
+                resource_id,
+                json.dumps({"approval_id": str(approval_id), "reason": approval["reason"]}),
+            ),
         )
     return {"id": str(approval_id), "status": "approved", "changed_memory": True, "resource_id": resource_id}
 
 
 @app.post("/api/browser/navigate", tags=["browser"], dependencies=[Depends(require_owner)])
 async def browser_navigate(body: BrowserNavigate) -> dict:
-    """User-initiated, read-only navigation. The browser service applies network restrictions."""
+    """User-initiated, read-only navigation. The browser and egress proxy enforce network restrictions."""
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
@@ -207,7 +225,6 @@ async def browser_navigate(body: BrowserNavigate) -> dict:
             detail = "Browser navigation failed"
         raise HTTPException(status_code=response.status_code, detail=detail)
     result = response.json()
-    # Keep a bounded screenshot payload; frontend renders it as a data URL.
     screenshot = result.get("screenshot_b64", "")
     if len(screenshot) > 2_000_000:
         raise HTTPException(status_code=502, detail="Screenshot exceeded response limit")

@@ -29,3 +29,10 @@
 **Decision:** Memory add/update/delete are stored as proposals; approved changes are executed transactionally.
 
 **Reason:** The owner's explicit permission policy must be enforced in backend code, not only in model prompts or frontend conventions.
+
+
+## ADR-006: Isolated browser egress
+
+**Decision:** The browser container is attached only to an internal control network. A separate non-root CONNECT proxy is the only service attached to an outbound network. The proxy accepts TLS tunnels to port 443, validates all resolved IP addresses and connects to a pinned public IP. The browser runs as the Playwright `pwuser` with sandboxing, seccomp, dropped capabilities and a read-only filesystem.
+
+**Reason:** Application-level URL checks alone are not sufficient against DNS rebinding or browser compromise. Network separation and IP pinning add independent defense-in-depth layers. The proxy does not inspect encrypted HTTP methods; the browser's request interception remains an additional read-only policy control, not a production guarantee.

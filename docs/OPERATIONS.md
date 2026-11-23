@@ -39,7 +39,7 @@ This permanently deletes the database volume. Export first.
 
 ## Troubleshooting
 
-- `401`: check the token pasted into the UI matches `AAKASH_ADMIN_TOKEN` in `.env`; restart `api` after changing environment values.
+- `401`: check the token pasted into the UI matches `CEREPATH_OWNER_TOKEN` in `.env`; restart `api` after changing environment values.
 - Database unavailable: `docker compose ps` and `docker compose logs db`.
-- Browser unavailable: inspect `docker compose logs browser-agent`; ensure Docker has enough shared memory and RAM.
+- Browser unavailable: inspect `docker compose logs browser-agent` and `docker compose logs egress-proxy`; check the proxy health and Docker shared memory/RAM.
 - Frontend changes not visible: rebuild with `docker compose up --build -d web`.

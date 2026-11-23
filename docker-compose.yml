@@ -1,4 +1,4 @@
-name: aakash-ai
+name: cerepath
 
 services:
   db:
@@ -18,7 +18,26 @@ services:
       retries: 20
     mem_limit: 2g
     cpus: "0.30"
-    networks: [private]
+    networks: [data]
+
+  egress-proxy:
+    build:
+      context: ./egress_proxy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    mem_limit: 128m
+    cpus: "0.10"
+    networks: [browser_control, browser_egress]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1',3128),2); s.close()"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
 
   browser-agent:
     build:
@@ -28,13 +47,26 @@ services:
       BROWSER_INTERNAL_TOKEN: ${BROWSER_INTERNAL_TOKEN:?Set BROWSER_INTERNAL_TOKEN in .env}
       BROWSER_TIMEOUT_SECONDS: "20"
     shm_size: 1gb
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,noexec,nosuid
+      - /home/pwuser/.cache:size=512m
     security_opt:
       - no-new-privileges:true
+      - seccomp=./browser_agent/seccomp_profile.json
     cap_drop: [ALL]
-    mem_limit: 3g
-    cpus: "1.20"
     pids_limit: 256
-    networks: [private]
+    mem_limit: 3g
+    cpus: "0.90"
+    depends_on:
+      egress-proxy:
+        condition: service_healthy
+    networks: [browser_control]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health',timeout=2).read()"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
 
   api:
     build:
@@ -42,7 +74,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      AAKASH_ADMIN_TOKEN: ${AAKASH_ADMIN_TOKEN:?Set AAKASH_ADMIN_TOKEN in .env}
+      CEREPATH_OWNER_TOKEN: ${CEREPATH_OWNER_TOKEN:?Set CEREPATH_OWNER_TOKEN in .env}
       BROWSER_INTERNAL_TOKEN: ${BROWSER_INTERNAL_TOKEN:?Set BROWSER_INTERNAL_TOKEN in .env}
       BROWSER_AGENT_URL: http://browser-agent:8001
       APP_ENV: ${APP_ENV:-local}
@@ -51,10 +83,10 @@ services:
       db:
         condition: service_healthy
       browser-agent:
-        condition: service_started
+        condition: service_healthy
     mem_limit: 1g
-    cpus: "0.40"
-    networks: [private]
+    cpus: "0.35"
+    networks: [data, browser_control]
 
   web:
     build:
@@ -65,11 +97,14 @@ services:
     depends_on: [api]
     mem_limit: 256m
     cpus: "0.10"
-    networks: [private]
+    networks: [browser_control]
 
 volumes:
   postgres_data:
 
 networks:
-  private:
-    driver: bridge
+  data:
+    internal: true
+  browser_control:
+    internal: true
+  browser_egress:

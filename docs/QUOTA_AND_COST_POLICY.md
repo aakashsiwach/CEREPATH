@@ -1,6 +1,6 @@
 # Quota and cost policy
 
-The target recurring infrastructure cost is ₹0. The starter does not connect to any paid API or cloud account.
+The target recurring infrastructure cost is ₹0. This starter does not connect to any paid API or cloud account.
 
 Future components must carry a cost classification:
 
@@ -19,5 +19,6 @@ Future components must carry a cost classification:
 6. Treat provider free plans as changeable; revalidate terms before deploying or changing adapters.
 7. Do not claim always-on uptime from free compute. Persist task checkpoints and provide recovery instructions.
 8. Never route private identity/memory data to a provider whose retention/training policy has not been reviewed and approved.
+9. Never include a trial or promotional credit in the core availability calculation.
 
 A ₹0 target is not a promise of unlimited compute, inference or guaranteed availability. When free capacity is unavailable, tasks wait or stop safely.

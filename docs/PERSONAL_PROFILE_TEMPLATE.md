@@ -1,4 +1,4 @@
-# Aakash AI — Personal Profile Intake Template
+# Cerepath — Personal Profile Intake Template
 
 Do not fill this automatically from assumptions. Add each section only after the owner reviews it.
 
@@ -6,7 +6,7 @@ Do not fill this automatically from assumptions. Add each section only after the
 - Preferred representation / name:
 - Long-term goals:
 - Values and non-negotiable boundaries:
-- Topics the clone must avoid:
+- Topics the assistant must avoid:
 
 ## Communication style
 - Preferred tone:

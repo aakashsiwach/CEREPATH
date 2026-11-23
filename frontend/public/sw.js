@@ -1,4 +1,4 @@
-const CACHE = 'aakash-ai-shell-v1'
+const CACHE = 'cerepath-shell-v1'
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg']
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)))
