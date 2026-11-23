@@ -123,6 +123,21 @@ def build_model_provider() -> ModelProvider:
             proxy=os.getenv("AI_HTTP_PROXY", "http://egress-proxy:3128").strip() or None,
         )
 
+    if selected == "gemini":
+        api_key = os.getenv("GEMINI_API_KEY", "").strip()
+        if not api_key or api_key.startswith("CHANGE_ME"):
+            return DisabledModelProvider("Set GEMINI_API_KEY in your local .env to enable Gemini.")
+        return OpenAICompatibleProvider(
+            name="gemini",
+            base_url=os.getenv(
+                "GEMINI_BASE_URL",
+                "https://generativelanguage.googleapis.com/v1beta/openai",
+            ),
+            model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
+            api_key=api_key,
+            proxy=os.getenv("AI_HTTP_PROXY", "http://egress-proxy:3128").strip() or None,
+        )
+
     if selected == "ollama":
         return OpenAICompatibleProvider(
             name="ollama",
@@ -133,5 +148,5 @@ def build_model_provider() -> ModelProvider:
         )
 
     return DisabledModelProvider(
-        f"Unsupported AI_PROVIDER '{selected}'. Choose 'bynara', 'ollama', or 'disabled'."
+        f"Unsupported AI_PROVIDER '{selected}'. Choose 'bynara', 'gemini', 'ollama', or 'disabled'."
     )
