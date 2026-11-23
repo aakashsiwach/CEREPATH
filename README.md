@@ -33,7 +33,7 @@ Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then set
 ```dotenv
 AI_PROVIDER=gemini
 GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-GEMINI_MODEL=gemini-3.8-flash
+GEMINI_MODEL=gemini-3.6-flash
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 AI_HTTP_PROXY=http://egress-proxy:3128
 ```
