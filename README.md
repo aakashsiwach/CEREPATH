@@ -12,8 +12,8 @@ Cerepath is a local-first personal AI workspace built around user-owned identity
 - FastAPI backend and PostgreSQL/pgvector.
 - Revocable HTTP-only sessions and CSRF protection.
 - Owner-scoped persistent conversations and messages.
-- OpenAI-compatible Bynara adapter using `https://router.bynara.id/v1/chat/completions`.
-- Default Bynara model: `gpt-5.6-luna`.
+- OpenAI-compatible Bynara adapter.
+- OpenAI-compatible Google Gemini Developer API adapter.
 - Optional local Ollama through its OpenAI-compatible API.
 - Approved-memory retrieval for chat context (bounded lexical matching in this version).
 - No automatic provider fallback; a missing or failing provider returns an explicit error.
@@ -24,7 +24,25 @@ Cerepath is a local-first personal AI workspace built around user-owned identity
 
 The API key belongs in the server-side `.env` file only. Never paste it into frontend code, chat, an issue, or a commit.
 
-### Bynara (default)
+Select exactly one provider with `AI_PROVIDER`: `bynara`, `gemini`, `ollama`, or `disabled`. The application never silently falls back to another service.
+
+### Google Gemini Developer API
+
+Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then set:
+
+```dotenv
+AI_PROVIDER=gemini
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+GEMINI_MODEL=gemini-3.8-flash
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+AI_HTTP_PROXY=http://egress-proxy:3128
+```
+
+Cerepath uses Google's documented OpenAI-compatible Chat Completions endpoint at `/v1beta/openai/chat/completions` and sends the key as a Bearer token. The API container routes Gemini HTTPS requests through the restricted CONNECT egress proxy.
+
+The Gemini Developer API free tier offers free input/output tokens for selected models, subject to model access and rate limits. Free-tier content may be used by Google to improve its products. **Do not send private memories, confidential information, credentials or sensitive personal data through a free-tier Gemini key.** Review Google's current [pricing](https://ai.google.dev/gemini-api/docs/pricing) and [terms](https://ai.google.dev/gemini-api/terms) before enabling it. Paid-tier data handling differs; verify the terms for your actual account tier.
+
+### Bynara
 
 Set these values in `.env`:
 
@@ -36,9 +54,7 @@ BYNARA_API_KEY=YOUR_BYNARA_API_KEY
 AI_HTTP_PROXY=http://egress-proxy:3128
 ```
 
-The API sends OpenAI-compatible chat completion requests to `/chat/completions`. The backend routes Bynara traffic through the existing HTTPS CONNECT egress proxy; it does not receive unrestricted outbound internet access. The proxy permits outbound TLS connections on port 443 only.
-
-**Privacy:** when Bynara is enabled, the current prompt, up to 16 recent conversation messages and up to 8 relevant approved memories (bounded to 9,000 characters total) may be sent to Bynara as model context. Do not store secrets or sensitive credentials in memories. Review the provider's privacy and billing terms before enabling it.
+The API sends OpenAI-compatible chat completion requests to `/chat/completions`. The backend routes Bynara traffic through the existing HTTPS CONNECT egress proxy; it does not receive unrestricted outbound internet access.
 
 ### Local Ollama
 
@@ -63,7 +79,7 @@ The API container maps `host.docker.internal` to the host gateway for Docker Eng
 AI_PROVIDER=disabled
 ```
 
-There is no silent fallback from Bynara to Ollama or from Ollama to a paid provider. The provider shown in `/api/status` is the one selected by configuration.
+There is no silent fallback from one provider to another. The provider shown in `/api/status` is the one selected by configuration.
 
 ## Run locally
 
@@ -73,7 +89,7 @@ There is no silent fallback from Bynara to Ollama or from Ollama to a paid provi
    cp .env.example .env
    ```
 
-2. Replace all `CHANGE_ME` values with unique random secrets and add your Bynara key (or configure Ollama/disabled mode). Generate random secrets with:
+2. Replace all `CHANGE_ME` values with unique random secrets and add the API key for your selected provider. Generate random secrets with:
 
    ```bash
    python -c "import secrets; print(secrets.token_urlsafe(48))"
