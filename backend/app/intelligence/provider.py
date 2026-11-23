@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from dataclasses import dataclass
 from typing import Protocol, Sequence
@@ -76,8 +77,21 @@ class OpenAICompatibleProvider:
                 proxy=self.proxy,
                 trust_env=False,
             ) as client:
-                response = await client.post(endpoint, headers=headers, json=payload)
-                response.raise_for_status()
+                # Google recommends exponential backoff for transient 503 overloads.
+                # Keep retries bounded and never switch providers automatically.
+                for attempt in range(3):
+                    response = await client.post(endpoint, headers=headers, json=payload)
+                    if response.status_code != 503 or attempt == 2:
+                        response.raise_for_status()
+                        break
+
+                    retry_after = response.headers.get("Retry-After")
+                    try:
+                        delay = min(max(float(retry_after), 0.0), 8.0) if retry_after else 2**attempt
+                    except ValueError:
+                        delay = 2**attempt
+                    await asyncio.sleep(delay)
+
                 data = response.json()
         except httpx.TimeoutException as exc:
             raise ModelProviderError(f"{self.name} did not respond before the timeout.") from exc
