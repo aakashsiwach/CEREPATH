@@ -45,7 +45,7 @@ def test_gemini_configuration_uses_google_openai_compatible_endpoint(monkeypatch
     assert isinstance(provider, OpenAICompatibleProvider)
     assert provider.name == "gemini"
     assert provider.base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
-    assert provider.model == "gemini-3.8-flash"
+    assert provider.model == "gemini-3.6-flash"
     assert provider.api_key == "test-gemini-key"
     assert provider.proxy == "http://egress-proxy:3128"
 
