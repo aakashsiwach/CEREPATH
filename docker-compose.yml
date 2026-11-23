@@ -77,6 +77,17 @@ services:
       CEREPATH_OWNER_TOKEN: ${CEREPATH_OWNER_TOKEN:?Set CEREPATH_OWNER_TOKEN in .env}
       BROWSER_INTERNAL_TOKEN: ${BROWSER_INTERNAL_TOKEN:?Set BROWSER_INTERNAL_TOKEN in .env}
       BROWSER_AGENT_URL: http://browser-agent:8001
+      AI_PROVIDER: ${AI_PROVIDER:-bynara}
+      BYNARA_BASE_URL: ${BYNARA_BASE_URL:-https://router.bynara.id/v1}
+      BYNARA_MODEL: ${BYNARA_MODEL:-gpt-5.6-luna}
+      BYNARA_API_KEY: ${BYNARA_API_KEY:-}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      AI_HTTP_PROXY: ${AI_HTTP_PROXY:-http://egress-proxy:3128}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
+      OLLAMA_API_KEY: ${OLLAMA_API_KEY:-}
       APP_ENV: ${APP_ENV:-local}
       CEREPATH_SESSION_TTL_HOURS: ${CEREPATH_SESSION_TTL_HOURS:-12}
       RUN_DB_MIGRATIONS: "true"
@@ -89,6 +100,8 @@ services:
     mem_limit: 1g
     cpus: "0.35"
     networks: [data, browser_control]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   web:
     build:
@@ -99,7 +112,9 @@ services:
     depends_on: [api]
     mem_limit: 256m
     cpus: "0.10"
-    networks: [browser_control]
+    # Needs the isolated control network to proxy /api to the API service,
+    # plus a regular bridge network so Docker can publish the host ingress port.
+    networks: [browser_control, web_ingress]
 
 volumes:
   postgres_data:
@@ -110,3 +125,6 @@ networks:
   browser_control:
     internal: true
   browser_egress:
+  # Only the Nginx web gateway joins this network; host access remains loopback-only.
+  web_ingress:
+    driver: bridge

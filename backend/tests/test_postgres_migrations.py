@@ -79,10 +79,18 @@ def test_identity_migration_backfills_existing_records_and_is_repeatable(monkeyp
         session_table = conn.execute(
             "SELECT to_regclass('public.sessions') IS NOT NULL"
         ).fetchone()[0]
+        conversation_table = conn.execute(
+            "SELECT to_regclass('public.chat_conversations') IS NOT NULL"
+        ).fetchone()[0]
+        message_table = conn.execute(
+            "SELECT to_regclass('public.chat_messages') IS NOT NULL"
+        ).fetchone()[0]
 
     assert memory[0] == owner_id
     assert approval[0] == owner_id
     assert audit[0] == owner_id
     assert owner_count == 1
-    assert migration_count == 1
+    assert migration_count == 2
     assert session_table is True
+    assert conversation_table is True
+    assert message_table is True

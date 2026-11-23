@@ -23,8 +23,10 @@ from .config import (
 )
 from .db import apply_migrations, connection
 from .policy import validate_memory_proposal
-from .schemas import ApprovalCreate, ApprovalDecision, BootstrapLogin, BrowserNavigate, ChatInput
+from .schemas import ApprovalCreate, ApprovalDecision, BootstrapLogin, BrowserNavigate
 from .security import require_owner
+from .intelligence.chat import router as chat_router
+from .intelligence.provider import DisabledModelProvider, build_model_provider
 
 
 @asynccontextmanager
@@ -36,8 +38,8 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(
     title="Cerepath API",
-    version="0.3.0",
-    description="Local personal intelligence platform with owner-controlled sessions and memory.",
+    version="0.4.0",
+    description="Personal AI workspace with owner-controlled memory, chat history and model adapters.",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     redoc_url="/api/redoc",
@@ -75,7 +77,7 @@ def _set_session_cookie(response: Response, token: str) -> None:
 
 @app.get("/api/health", tags=["system"])
 def health() -> dict:
-    return {"status": "ok", "service": "cerepath-api", "version": "0.3.0"}
+    return {"status": "ok", "service": "cerepath-api", "version": "0.4.0"}
 
 
 @app.post("/api/auth/login", tags=["authentication"])
@@ -150,30 +152,19 @@ def status(_: str = Depends(require_owner)) -> dict:
             conn.execute("SELECT 1")
     except Exception as exc:
         raise HTTPException(status_code=503, detail="Database is not ready") from exc
+    provider = build_model_provider()
+    enabled = not isinstance(provider, DisabledModelProvider)
     return {
         "status": "ready",
         "environment": APP_ENV,
         "authentication": "revocable_http_only_session",
-        "model_provider": None,
-        "external_model_calls_enabled": False,
+        "model_provider": provider.name if enabled else None,
+        "model": provider.model if enabled else None,
+        "model_calls_enabled": enabled,
+        "external_model_calls_enabled": enabled and provider.name != "ollama",
         "memory_write_policy": "owner_approval_required",
+        "memory_retrieval": "approved_owner_memories_only",
         "browser_mode": "https_read_only_via_egress_proxy",
-    }
-
-
-@app.post("/api/chat", tags=["chat"])
-def chat(body: ChatInput, user_id: UUID = Depends(require_owner)) -> dict:
-    # Deliberately no LLM call and no persistence in milestone 1.
-    return {
-        "role": "assistant",
-        "content": (
-            "Cerepath's identity and session foundation is running. The reasoning model is not connected yet, "
-            "so this message was not sent to an external AI provider or saved as memory."
-        ),
-        "received_characters": len(body.message),
-        "persisted": False,
-        "external_ai_called": False,
-        "user_id": str(user_id),
     }
 
 
@@ -362,3 +353,6 @@ async def browser_navigate(
     if len(screenshot) > 2_000_000:
         raise HTTPException(status_code=502, detail="Screenshot exceeded response limit")
     return result
+
+
+app.include_router(chat_router)

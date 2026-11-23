@@ -2,19 +2,19 @@
 
 ## Product intent
 
-Cerepath is an open-source, cloud-first personal intelligence platform. Each installation represents a user's explicitly approved identity and working preferences while using external knowledge and tools to extend capability. It does not reproduce consciousness or claim infallibility.
+Cerepath is a local-first personal intelligence platform. Each installation represents a user's explicitly approved identity and working preferences while using a configured model and external knowledge to extend capability. It does not reproduce consciousness or claim infallibility.
 
 ## Core design principles
 
 - **Device-independent:** the PWA is a control surface; state and execution belong to backend services.
-- **Model-independent:** reasoning providers are adapters, not the system's source of truth.
-- **Memory with provenance:** every retained fact should have a source, timestamp and confidence.
-- **Explicit consent:** adding, updating or deleting persistent information requires owner approval.
+- **Model-independent:** providers are adapters, not the system's source of truth.
+- **Memory with provenance:** retained facts have owner approval and should carry source, timestamp and confidence.
+- **Explicit consent:** persistent memory changes and external side effects require owner approval.
 - **Read-only by default:** external tools begin with the smallest possible permissions.
 - **Verifiable execution:** an action is not marked successful until evidence is captured.
-- **Cost ceiling:** stop work when a free quota or local budget is exhausted; never silently switch to paid usage.
-- **Recoverable:** memory and task state must be exportable and restorable.
-- **Multi-user safety:** community features must not expose one user's private memories or credentials to another.
+- **Cost ceiling:** use only the configured provider; never silently switch to another or paid service.
+- **Recoverable:** memory and task state should be exportable and restorable.
+- **Multi-user safety:** private memories and credentials must remain isolated.
 
 ## Runtime services
 
@@ -26,47 +26,53 @@ Phone / Laptop / Desktop
        Nginx proxy
           |
       FastAPI gateway ------------------ Browser agent (Playwright)
-          |                                     |
+          |                                      |
     PostgreSQL + pgvector                  HTTPS GET only
-          |                                     |
-   Audit + approvals + memories             Egress proxy
-                                                |
-                                      DNS validation + IP pinning
-                                                |
-                                           Public Internet
+          |                                      |
+ Conversations / memories / approvals        Egress proxy
+          |                                      |
+   OpenAI-compatible provider          DNS validation + IP pinning
+  (Bynara, Gemini or local Ollama)                  |
+          |                                  Public Internet
 ```
 
-Docker networks separate the database, control-plane and browser-egress paths. The browser has no direct outbound network; the egress proxy is the only service attached to the outbound network.
+The API and database have no direct outbound route. Bynara and Gemini calls use the CONNECT-only egress proxy on HTTPS port 443. Ollama can be reached through the Docker host gateway and does not use the public proxy. The browser uses the same restricted proxy for public HTTPS navigation.
 
 ## Frontend
 
-React + TypeScript + Vite + a minimal PWA manifest/service worker. The local starter exchanges the owner bootstrap credential for a random, opaque server-side session. Only the session cookie is sent after login; it is HTTP-only, SameSite=Strict, time-limited and revocable. State-changing cookie-authenticated requests require a CSRF token. The bootstrap flow is local-only; production identity must use reviewed OIDC/passkey authentication and account provisioning.
+React + TypeScript + Vite + a minimal PWA manifest/service worker. The local starter exchanges the owner bootstrap credential for a random, opaque server-side session. The session cookie is HTTP-only, SameSite=Strict, time-limited and revocable. State-changing cookie-authenticated requests require a CSRF token. The bootstrap flow is local-only; production identity must use reviewed OIDC/passkey authentication and account provisioning.
+
+The chat interface lists saved owner conversations, loads message history and creates a new conversation when the user starts a chat without selecting an existing conversation. Provider credentials never reach the browser.
 
 ## Backend
 
-FastAPI is the control plane. It authenticates the owner, validates proposed operations, stores approval requests, applies approved memory changes transactionally and writes audit events. It does not contain model-provider credentials or call external model APIs in this milestone.
+FastAPI authenticates the owner, scopes conversation and memory queries by user ID, validates proposed memory operations, stores approvals, applies approved memory changes transactionally and writes audit events.
+
+The intelligence layer exposes a small provider protocol and a shared OpenAI-compatible adapter. Supported hosted providers are Bynara and Google's Gemini Developer API; optional Ollama targets a local OpenAI-compatible endpoint. Gemini uses Google's documented `/v1beta/openai/chat/completions` compatibility path and Bearer API-key authentication. Only one provider is selected per API process; no automatic fallback is performed. Provider keys are read from the server environment and are not stored in PostgreSQL.
+
+Chat requests store the user message before calling the provider, then persist the assistant reply and provider/model metadata. Failed provider calls leave a failed user-message record rather than silently losing the prompt. The model receives a bounded recent conversation and a bounded set of approved memories. Memory retrieval is lexical in this release; pgvector embeddings are not yet generated.
 
 ## Database
 
-PostgreSQL is the source of truth. User, session and migration tables establish identity and revocable authentication. Memories, approvals and audit events carry non-null user ownership. `pgvector` is enabled for future semantic retrieval, but embeddings are not generated in this starter. Memory content and metadata are stored with provenance. Approval requests and audit events are separate tables.
+PostgreSQL is the source of truth. User, session and migration tables establish identity and revocable authentication. Memories, approvals, audit events, chat conversations and chat messages carry non-null user ownership. A composite foreign key ties each message to a conversation belonging to the same user. `pgvector` is enabled for future semantic retrieval, but embeddings are not generated in this starter.
 
 ## Browser and egress proxy
 
 The browser service creates a disposable Chromium context for each navigation. It accepts HTTPS URLs on port 443 only; browser routing aborts non-GET requests. Chromium runs as an unprivileged user with its sandbox enabled, a read-only container filesystem, dropped capabilities and a seccomp profile.
 
-The browser container has no direct outbound network. Its only route to public websites is a CONNECT-only proxy. The proxy accepts TLS tunnels to port 443, resolves the hostname, rejects the entire DNS answer set if any address is non-global, and opens the TCP connection to a validated IP address. This reduces DNS-rebinding/SSRF exposure. It does not inspect encrypted HTTP payloads; browser request interception remains an additional policy layer, not a guarantee against a compromised browser.
+The CONNECT-only proxy resolves the hostname, rejects the entire DNS answer set if any address is non-global, and opens the TCP connection to a validated IP address. This reduces DNS-rebinding/SSRF exposure. It does not inspect encrypted HTTP payloads. Browser request interception remains an additional policy layer, not a guarantee against a compromised browser.
 
-## Intelligence design (future)
+## Intelligence roadmap
 
-1. Retrieve verified memory and known skills.
-2. Use a fast local model for routing, extraction or straightforward tasks where helpful.
-3. Use optional external reasoning adapters only when configured and explicitly permitted.
-4. Delegate independent read-only investigations in parallel only when this reduces latency.
-5. Use a verifier to check claims, code, citations and task outcomes.
-6. Store persistent knowledge only as a proposal awaiting owner approval.
+1. Improve retrieval with locally generated embeddings and hybrid ranking.
+2. Add streaming responses and conversation controls.
+3. Add fast/deep routing only after baseline provider behavior is measurable.
+4. Add bounded tools and agent roles with explicit permissions.
+5. Add verifiers and regression evaluation datasets.
+6. Store durable knowledge only through an owner-approved memory operation.
 
-Multiple agents should not be invoked for every request. Model routing must account for latency, privacy, context limits, free quota and task difficulty.
+Multiple agents should not be invoked for every request. Model routing must account for latency, privacy, context limits and cost.
 
 ## Deployment posture
 
-This bundle is local-only. The current bootstrap sign-in provisions one local owner only; OIDC/passkeys, account recovery, multi-user registration and database row-level security remain future work. The web UI binds to `127.0.0.1:5173`. The API, database, browser and proxy ports are not published. It contains no cloud provisioning scripts. Remote deployment is a later decision after threat-model review, backup/restore testing and provider free-tier validation.
+This bundle is local-only and single-owner. OIDC/passkeys, account recovery, multi-user registration and database row-level security remain future work. The web UI binds to `127.0.0.1:5173`. The API, database, browser and proxy ports are not published. Do not expose this starter publicly before threat-model review, backup/restore testing and independent security validation.
