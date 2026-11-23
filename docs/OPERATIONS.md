@@ -32,6 +32,29 @@ docker compose up -d --force-recreate api
 docker compose logs -f api
 ```
 
+## Configure Google Gemini
+
+Create an API key in Google AI Studio and set:
+
+```dotenv
+AI_PROVIDER=gemini
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+GEMINI_MODEL=gemini-3.6-flash
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+AI_HTTP_PROXY=http://egress-proxy:3128
+```
+
+The API uses Google's OpenAI-compatible Chat Completions endpoint. The key remains in the API container environment and is sent as a Bearer token; it is never passed to the browser. Gemini requests use the HTTPS CONNECT egress proxy.
+
+The Gemini Developer API free tier has limited model access and rate limits. Google's pricing page says free-tier content may be used to improve its products. Do not send private memories, confidential information or credentials through a free-tier key. Review current provider terms and pricing before use.
+
+Recreate the API after changing environment values:
+
+```bash
+docker compose up -d --force-recreate api
+docker compose logs -f api
+```
+
 ## Configure Bynara
 
 In `.env`, set:
