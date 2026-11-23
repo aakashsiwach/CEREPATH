@@ -37,6 +37,26 @@ def test_bynara_is_disabled_when_key_is_missing(monkeypatch):
     assert isinstance(provider, DisabledModelProvider)
 
 
+def test_gemini_configuration_uses_google_openai_compatible_endpoint(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "gemini")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("AI_HTTP_PROXY", "http://egress-proxy:3128")
+    provider = build_model_provider()
+    assert isinstance(provider, OpenAICompatibleProvider)
+    assert provider.name == "gemini"
+    assert provider.base_url == "https://generativelanguage.googleapis.com/v1beta/openai"
+    assert provider.model == "gemini-3.8-flash"
+    assert provider.api_key == "test-gemini-key"
+    assert provider.proxy == "http://egress-proxy:3128"
+
+
+def test_gemini_is_disabled_when_key_is_missing(monkeypatch):
+    monkeypatch.setenv("AI_PROVIDER", "gemini")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    provider = build_model_provider()
+    assert isinstance(provider, DisabledModelProvider)
+
+
 def test_ollama_provider_never_uses_external_egress_proxy(monkeypatch):
     monkeypatch.setenv("AI_PROVIDER", "ollama")
     monkeypatch.setenv("AI_HTTP_PROXY", "http://egress-proxy:3128")
