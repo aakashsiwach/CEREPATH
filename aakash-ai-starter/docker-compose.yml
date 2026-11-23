@@ -1,0 +1,75 @@
+name: aakash-ai
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Copy .env.example to .env and set values}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 2g
+    cpus: "0.30"
+    networks: [private]
+
+  browser-agent:
+    build:
+      context: ./browser_agent
+    restart: unless-stopped
+    environment:
+      BROWSER_INTERNAL_TOKEN: ${BROWSER_INTERNAL_TOKEN:?Set BROWSER_INTERNAL_TOKEN in .env}
+      BROWSER_TIMEOUT_SECONDS: "20"
+    shm_size: 1gb
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    mem_limit: 3g
+    cpus: "1.20"
+    pids_limit: 256
+    networks: [private]
+
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      AAKASH_ADMIN_TOKEN: ${AAKASH_ADMIN_TOKEN:?Set AAKASH_ADMIN_TOKEN in .env}
+      BROWSER_INTERNAL_TOKEN: ${BROWSER_INTERNAL_TOKEN:?Set BROWSER_INTERNAL_TOKEN in .env}
+      BROWSER_AGENT_URL: http://browser-agent:8001
+      APP_ENV: ${APP_ENV:-local}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      db:
+        condition: service_healthy
+      browser-agent:
+        condition: service_started
+    mem_limit: 1g
+    cpus: "0.40"
+    networks: [private]
+
+  web:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on: [api]
+    mem_limit: 256m
+    cpus: "0.10"
+    networks: [private]
+
+volumes:
+  postgres_data:
+
+networks:
+  private:
+    driver: bridge
