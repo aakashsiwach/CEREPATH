@@ -43,3 +43,8 @@ This permanently deletes the database volume. Export first.
 - Database unavailable: `docker compose ps` and `docker compose logs db`.
 - Browser unavailable: inspect `docker compose logs browser-agent` and `docker compose logs egress-proxy`; check the proxy health and Docker shared memory/RAM.
 - Frontend changes not visible: rebuild with `docker compose up --build -d web`.
+
+
+## Database migrations
+
+The Compose API service runs versioned SQL migrations at startup with `RUN_DB_MIGRATIONS=true`. Migrations are recorded in `schema_migrations`; do not edit an already-applied migration. Existing local volumes are upgraded automatically when the API starts. Back up the database before applying migrations to any installation containing valuable data.

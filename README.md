@@ -20,9 +20,9 @@ Cerepath is an open-source foundation for a device-independent personal intellig
 ## Current milestone
 
 - React + TypeScript PWA shell for desktop, tablet and mobile.
-- FastAPI control plane with owner-token authentication for local development.
+- FastAPI control plane with a single local owner identity and revocable server-side browser sessions.
 - PostgreSQL with pgvector enabled.
-- Memory add/update/delete proposals stored as pending approvals.
+- Memory add/update/delete proposals stored as pending approvals and scoped to the authenticated user.
 - Approval or rejection of one exact pending memory operation.
 - Audit events for decisions and executed memory operations.
 - Separate Playwright browser service using disposable browser contexts.
@@ -96,7 +96,7 @@ No cloud account is needed. No external AI API is called. Initial container buil
    docker compose ps
    ```
 
-4. Open **http://localhost:5173** and paste `CEREPATH_OWNER_TOKEN` from `.env` into the sign-in field.
+4. Open **http://localhost:5173** and paste `CEREPATH_OWNER_TOKEN` from `.env` into the local bootstrap sign-in field. The token is exchanged for a revocable HTTP-only session cookie; it is not stored in the browser.
 
 Health check:
 
@@ -120,11 +120,14 @@ The last command permanently deletes local PostgreSQL contents. Export or back u
 
 ## API overview
 
-All `/api/*` endpoints except `/api/health` require `Authorization: Bearer <CEREPATH_OWNER_TOKEN>`.
+All application endpoints except `/api/health` and the local bootstrap login require an authenticated session. The local bootstrap login is disabled unless `APP_ENV=local`. Session cookies are HTTP-only, SameSite=Strict and use a CSRF token for state-changing requests. Direct bearer authentication remains available only as a local-development compatibility path.
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | Liveness check |
+| POST | `/api/auth/login` | Exchange the local bootstrap credential for a browser session (local only) |
+| GET | `/api/auth/session` | Read the active session identity |
+| POST | `/api/auth/logout` | Revoke the current session (CSRF protected) |
 | GET | `/api/status` | Local configuration status |
 | POST | `/api/chat` | Placeholder response; no model call or transcript persistence |
 | GET | `/api/memories` | List approved memories |
@@ -159,7 +162,7 @@ npm install
 npm run build
 ```
 
-GitHub Actions runs Python tests, the frontend TypeScript/production build, and container build checks on pushes and pull requests.
+GitHub Actions runs Python tests, the frontend TypeScript/production build, container build checks and a PostgreSQL migration/backfill integration test on pushes and pull requests. The PostgreSQL integration test requires a dedicated disposable database whose name ends in `_test`; it drops and recreates that database's `public` schema. Do not point it at a valuable database.
 
 ## Community
 
@@ -175,7 +178,7 @@ GitHub Actions runs Python tests, the frontend TypeScript/production build, and 
 - Chat transcripts are not persisted in this milestone.
 - Browser page content and screenshots are returned to the current client but are not automatically saved as memories.
 - Local database contents are not backed up automatically.
-- Multi-user identity and tenant isolation are not implemented yet. Do not expose this starter as a public multi-user service.
+- The current identity is one local owner only. User ownership columns and query scoping are in place, but OIDC/passkeys, account provisioning, multi-user registration, and PostgreSQL row-level security are not yet implemented. Do not expose this starter as a public multi-user service.
 
 ## License
 

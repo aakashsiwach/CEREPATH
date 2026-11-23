@@ -17,8 +17,8 @@ An approval is one-time and payload-specific. It cannot authorize a different pa
 
 ## Implemented in this starter
 
-- Owner bearer token protects application APIs (local development only).
-- Browser agent has a separate internal token.
+- One local owner identity is provisioned for the local bootstrap flow. The bootstrap credential exchanges for a database-backed session whose opaque cookie is HTTP-only, SameSite=Strict, time-limited and revocable.
+- Cookie-authenticated state-changing API requests require a per-session CSRF token. Direct bearer-token compatibility is restricted to `APP_ENV=local`.
 - Browser uses a disposable context without retained cookies.
 - Browser allows HTTPS on port 443 only.
 - Browser route handling aborts non-GET requests.
@@ -30,11 +30,15 @@ An approval is one-time and payload-specific. It cannot authorize a different pa
 - Audit events record approvals, rejections and executed memory changes.
 - Database and control networks are marked internal; only the proxy has an outbound network.
 
+## Identity implementation boundary
+
+The current release is intentionally single-owner and local-only. It does not yet implement OIDC, passkeys, account registration, email verification, recovery flows, device management UI or PostgreSQL row-level security. User IDs are attached to memory, approval and audit records, and all corresponding application queries are scoped to the authenticated user. This is defense-in-depth groundwork, not a completed multi-user identity system.
+
 ## Important gaps before remote exposure
 
 This is a development scaffold, not a production security certification. Before exposing it to the internet:
 
-1. Replace static bearer tokens with passkeys/OIDC, short-lived sessions, CSRF protection and device/session management.
+1. Replace local bootstrap authentication with a reviewed OIDC/passkey flow, account provisioning, recovery and device/session management. Keep short-lived, revocable sessions and CSRF protection.
 2. Put the application behind HTTPS and a hardened reverse proxy/WAF.
 3. Add rate limiting, brute-force protection and token rotation.
 4. Review the seccomp profile whenever the Playwright image is upgraded. It is based on the upstream Playwright Docker profile and must be tested on every target architecture.
@@ -43,7 +47,7 @@ This is a development scaffold, not a production security certification. Before 
 7. Keep browser sessions isolated; do not import personal cookies or password vaults by default.
 8. Add encrypted backups, restore drills, retention controls and key management.
 9. Add security tests for redirects, DNS rebinding, browser subresources, prompt injection and approval replay.
-10. Ensure logs never include bearer tokens, credentials, full private documents or unnecessary personal data.
+10. Ensure logs never include bootstrap credentials, session cookies, CSRF tokens, full private documents or unnecessary personal data.
 11. Review dependencies and container images, pin digests for production, and scan for known vulnerabilities.
 
 ## Threats to design against

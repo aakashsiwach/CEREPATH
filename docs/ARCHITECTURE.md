@@ -40,7 +40,7 @@ Docker networks separate the database, control-plane and browser-egress paths. T
 
 ## Frontend
 
-React + TypeScript + Vite + a minimal PWA manifest/service worker. The local starter stores the owner token in `sessionStorage` only. A production release must replace the static bearer token flow with passkeys/OIDC and short-lived server sessions.
+React + TypeScript + Vite + a minimal PWA manifest/service worker. The local starter exchanges the owner bootstrap credential for a random, opaque server-side session. Only the session cookie is sent after login; it is HTTP-only, SameSite=Strict, time-limited and revocable. State-changing cookie-authenticated requests require a CSRF token. The bootstrap flow is local-only; production identity must use reviewed OIDC/passkey authentication and account provisioning.
 
 ## Backend
 
@@ -48,7 +48,7 @@ FastAPI is the control plane. It authenticates the owner, validates proposed ope
 
 ## Database
 
-PostgreSQL is the source of truth. `pgvector` is enabled for future semantic retrieval, but embeddings are not generated in this starter. Memory content and metadata are stored with provenance. Approval requests and audit events are separate tables.
+PostgreSQL is the source of truth. User, session and migration tables establish identity and revocable authentication. Memories, approvals and audit events carry non-null user ownership. `pgvector` is enabled for future semantic retrieval, but embeddings are not generated in this starter. Memory content and metadata are stored with provenance. Approval requests and audit events are separate tables.
 
 ## Browser and egress proxy
 
@@ -69,4 +69,4 @@ Multiple agents should not be invoked for every request. Model routing must acco
 
 ## Deployment posture
 
-This bundle is local-only. The web UI binds to `127.0.0.1:5173`. The API, database, browser and proxy ports are not published. It contains no cloud provisioning scripts. Remote deployment is a later decision after threat-model review, backup/restore testing and provider free-tier validation.
+This bundle is local-only. The current bootstrap sign-in provisions one local owner only; OIDC/passkeys, account recovery, multi-user registration and database row-level security remain future work. The web UI binds to `127.0.0.1:5173`. The API, database, browser and proxy ports are not published. It contains no cloud provisioning scripts. Remote deployment is a later decision after threat-model review, backup/restore testing and provider free-tier validation.

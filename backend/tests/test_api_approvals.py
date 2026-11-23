@@ -29,24 +29,33 @@ class FakeDatabase:
         self.memories = {}
         self.audit_events = []
 
-    def execute(self, query, params=()):
+    def execute(self, query, params=(), **_kwargs):
         normalized = " ".join(query.split()).lower()
         if normalized.startswith("insert into approvals"):
-            approval_id, action_type, target_id, payload, reason = params
+            approval_id, user_id, action_type, target_id, payload, reason = params
             self.approvals[str(approval_id)] = {
                 "id": approval_id,
+                "user_id": user_id,
                 "action_type": action_type,
                 "target_id": target_id,
                 "payload": json.loads(payload),
                 "reason": reason,
                 "status": "pending",
             }
+        elif normalized.startswith("select 1 from memories"):
+            memory_id, user_id = params
+            row = self.memories.get(str(memory_id))
+            return FakeCursor({"exists": 1} if row and row["user_id"] == user_id else None)
         elif normalized.startswith("select id, action_type, target_id, payload, reason, status from approvals"):
-            return FakeCursor(self.approvals.get(str(params[0])))
+            approval = self.approvals.get(str(params[0]))
+            if approval and approval["user_id"] == params[1]:
+                return FakeCursor(approval)
+            return FakeCursor()
         elif normalized.startswith("insert into memories"):
-            memory_id, category, title, content, source, confidence, metadata = params
+            memory_id, user_id, category, title, content, source, confidence, metadata = params
             self.memories[str(memory_id)] = {
                 "id": memory_id,
+                "user_id": user_id,
                 "category": category,
                 "title": title,
                 "content": content,

@@ -27,8 +27,14 @@
 
 ## Milestone 1 — User identity and durable memory
 
-- [ ] Passkeys/OIDC and device/session management
-- [ ] Tenant isolation and user-level data access policies
+The first PR establishes a local single-owner identity/session substrate. It does not enable public multi-user registration or production identity.
+
+- [x] Single local owner identity and revocable HTTP-only sessions
+- [x] CSRF protection for cookie-authenticated writes
+- [x] User ownership columns and application-level query scoping
+- [x] PostgreSQL migration integration test with existing-record backfill and repeatability checks
+- [ ] Passkeys/OIDC, account provisioning and device/session management UI
+- [ ] PostgreSQL row-level security and multi-user tenant-isolation integration tests
 - [ ] User profile and editable identity model
 - [ ] Document import with explicit consent
 - [ ] Provenance and confidence review UI
