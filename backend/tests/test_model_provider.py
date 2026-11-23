@@ -139,3 +139,60 @@ def test_provider_does_not_leak_upstream_error_body(monkeypatch):
     with pytest.raises(ModelProviderError, match="HTTP 401") as error:
         asyncio.run(provider.complete([{"role": "user", "content": "Hi"}]))
     assert "sensitive upstream content" not in str(error.value)
+
+
+
+def test_provider_retries_transient_503_with_bounded_backoff(monkeypatch):
+    captured = {"calls": 0, "delays": []}
+
+    class FakeResponse:
+        def __init__(self, status_code, payload=None, headers=None):
+            self.status_code = status_code
+            self.headers = headers or {}
+            self._payload = payload or {}
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                request = httpx.Request("POST", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")
+                response = httpx.Response(self.status_code, request=request)
+                raise httpx.HTTPStatusError("upstream error", request=request, response=response)
+
+        def json(self):
+            return self._payload
+
+    class FakeAsyncClient:
+        def __init__(self, **_kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def post(self, *_args, **_kwargs):
+            captured["calls"] += 1
+            if captured["calls"] == 1:
+                return FakeResponse(503, headers={"Retry-After": "3"})
+            if captured["calls"] == 2:
+                return FakeResponse(503)
+            return FakeResponse(200, {"choices": [{"message": {"content": "Gemini recovered"}}]})
+
+    async def fake_sleep(delay):
+        captured["delays"].append(delay)
+
+    monkeypatch.setattr(httpx, "AsyncClient", FakeAsyncClient)
+    monkeypatch.setattr(asyncio, "sleep", fake_sleep)
+    provider = OpenAICompatibleProvider(
+        name="gemini",
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai",
+        model="gemini-3.6-flash",
+        api_key="test-key",
+    )
+
+    reply = asyncio.run(provider.complete([{"role": "user", "content": "Hello"}]))
+
+    assert reply.text == "Gemini recovered"
+    assert reply.provider == "gemini"
+    assert captured["calls"] == 3
+    assert captured["delays"] == [3.0, 2]
