@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Activity, ArrowUpRight, BookOpen, BrainCircuit, Check, CircleAlert, Globe, KeyRound, LockKeyhole, LogOut, MessageSquare, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react'
 import { api, currentSession, login, logout, type Approval, type Memory } from './api'
 
 type Tab = 'chat' | 'memory' | 'browser' | 'approvals'
-type ChatMessage = { role: 'user' | 'assistant'; content: string }
-
-const initialMessages: ChatMessage[] = [{ role: 'assistant', content: 'Welcome to Cerepath. The secure local foundation is running. The reasoning model is not connected yet, and this chat does not save your messages or call an external AI service.' }]
+type ChatMessage = { id?: string; role: 'user' | 'assistant'; content: string; provider?: string | null; model?: string | null; status?: string; created_at?: string }
+type Conversation = { id: string; title: string; updated_at: string }
 
 function App() {
   const [csrfToken, setCsrfToken] = useState(sessionStorage.getItem('cerepath_csrf_token') || '')
@@ -16,7 +15,10 @@ function App() {
   const [status, setStatus] = useState('Checking connection…')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [conversationId, setConversationId] = useState<string | null>(null)
+  const conversationsLoaded = useRef(false)
   const [message, setMessage] = useState('')
   const [memories, setMemories] = useState<Memory[]>([])
   const [approvals, setApprovals] = useState<Approval[]>([])
@@ -33,11 +35,11 @@ function App() {
       const [memoryData, approvalData, systemStatus] = await Promise.all([
         api<{ items: Memory[] }>('/memories', csrfToken),
         api<{ items: Approval[] }>('/approvals', csrfToken),
-        api<{ status: string; external_model_calls_enabled: boolean }>('/status', csrfToken),
+        api<{ status: string; model_calls_enabled: boolean; model_provider: string | null; model: string | null }>('/status', csrfToken),
       ])
       setMemories(memoryData.items)
       setApprovals(approvalData.items)
-      setStatus(systemStatus.external_model_calls_enabled ? 'Connected' : 'Local foundation · no AI provider')
+      setStatus(systemStatus.model_calls_enabled ? `${systemStatus.model_provider} · ${systemStatus.model}` : 'AI provider not configured')
       setError('')
     } catch (err) {
       setStatus('Authentication or API error')
@@ -58,6 +60,30 @@ function App() {
   }, [])
 
   useEffect(() => { if (authenticated) void refreshData() }, [authenticated, refreshData])
+
+  useEffect(() => {
+    if (!authenticated || !csrfToken || conversationsLoaded.current) return
+    let active = true
+    conversationsLoaded.current = true
+    void api<{ items: Conversation[] }>('/conversations', csrfToken)
+      .then((data) => {
+        if (!active) return
+        setConversations(data.items)
+        if (data.items.length) setConversationId(data.items[0].id)
+      })
+      .catch((err) => { if (active) setError(err instanceof Error ? err.message : 'Could not load conversations') })
+    return () => { active = false }
+  }, [authenticated, csrfToken])
+
+  useEffect(() => {
+    if (!authenticated || !csrfToken) return
+    if (!conversationId) { setMessages([]); return }
+    let active = true
+    void api<{ items: ChatMessage[] }>(`/conversations/${conversationId}/messages`, csrfToken)
+      .then((data) => { if (active) setMessages(data.items) })
+      .catch((err) => { if (active) setError(err instanceof Error ? err.message : 'Could not load chat history') })
+    return () => { active = false }
+  }, [conversationId, authenticated, csrfToken])
 
   async function signIn(event: FormEvent) {
     event.preventDefault()
@@ -82,6 +108,10 @@ function App() {
     setAuthenticated(false)
     setMemories([])
     setApprovals([])
+    setConversations([])
+    setConversationId(null)
+    setMessages([])
+    conversationsLoaded.current = false
     setStatus('Signed out')
   }
 
@@ -93,8 +123,16 @@ function App() {
     setMessage('')
     setBusy(true)
     try {
-      const response = await api<{ content: string }>('/chat', csrfToken, { method: 'POST', body: JSON.stringify({ message: prompt }) })
-      setMessages((current) => [...current, { role: 'assistant', content: response.content }])
+      const response = await api<{ conversation_id: string; assistant_message: ChatMessage; persisted: boolean }>('/chat', csrfToken, {
+        method: 'POST',
+        body: JSON.stringify({ message: prompt, ...(conversationId ? { conversation_id: conversationId } : {}) }),
+      })
+      setConversationId(response.conversation_id)
+      setMessages((current) => [...current, response.assistant_message])
+      setConversations((current) => [
+        { id: response.conversation_id, title: prompt.slice(0, 80), updated_at: new Date().toISOString() },
+        ...current.filter((item) => item.id !== response.conversation_id),
+      ])
     } catch (err) {
       setMessages((current) => [...current, { role: 'assistant', content: err instanceof Error ? err.message : 'Request failed' }])
     } finally { setBusy(false) }
@@ -190,14 +228,14 @@ function App() {
       <header className="topbar"><div><p className="eyebrow">OWNER CONTROLLED SYSTEM</p><h2>{tab === 'chat' ? 'Your workspace' : tab === 'memory' ? 'Personal memory' : tab === 'browser' ? 'Read-only browser lab' : 'Approval centre'}</h2></div><div className="topbar-right"><span className="safe-pill"><ShieldCheck size={14}/> Approval-first mode</span><button className="icon-button" title="Sign out" onClick={signOut}><LogOut size={17}/></button></div></header>
       {error && <div className="alert"><CircleAlert size={17}/><span>{error}</span><button onClick={() => setError('')}><X size={15}/></button></div>}
 
-      {tab === 'chat' && <section className="content chat-layout"><div className="welcome-banner"><div><p className="eyebrow">MILESTONE 1 · IDENTITY FOUNDATION</p><h3>Build beyond what you know.</h3><p>The secure workspace is here. Intelligence providers remain disconnected until the model and privacy policy are designed.</p></div><Sparkles size={36}/></div><div className="chat-panel"><div className="chat-messages">{messages.map((item, index) => <div key={`${item.role}-${index}`} className={`message ${item.role}`}><div className="message-avatar">{item.role === 'assistant' ? <BrainCircuit size={17}/> : 'A'}</div><div className="message-body"><small>{item.role === 'assistant' ? 'Cerepath' : 'You'}</small><p>{item.content}</p></div></div>)}{busy && <div className="typing">Working…</div>}</div><form className="chat-composer" onSubmit={sendMessage}><textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Your command or thought…" rows={2}/><button type="submit" className="primary-button" disabled={busy || !message.trim()}><ArrowUpRight size={17}/> Send</button></form><p className="tiny-note">Chat is ephemeral in this milestone. Messages are not saved as memories.</p></div></section>}
+      {tab === 'chat' && <section className="content chat-layout"><div className="welcome-banner"><div><p className="eyebrow">PERSONAL INTELLIGENCE · OWNER CONTROLLED</p><h3>Your context, in conversation.</h3><p>Cerepath can use recent chat history and relevant approved memories. Model calls use the provider configured by you.</p></div><Sparkles size={36}/></div><div className="chat-panel"><div className="chat-toolbar" style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}><select aria-label="Conversation history" value={conversationId || ''} onChange={(event) => setConversationId(event.target.value || null)} style={{ flex: 1, minWidth: 0 }}><option value="">New conversation</option>{conversations.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select><button type="button" className="subtle-button" onClick={() => { setConversationId(null); setMessages([]) }}>New chat</button></div><div className="chat-messages">{messages.map((item, index) => <div key={`${item.role}-${index}`} className={`message ${item.role}`}><div className="message-avatar">{item.role === 'assistant' ? <BrainCircuit size={17}/> : 'A'}</div><div className="message-body"><small>{item.role === 'assistant' ? (item.provider ? `Cerepath · ${item.provider}` : 'Cerepath') : 'You'}</small><p>{item.content}</p></div></div>)}{busy && <div className="typing">Working…</div>}</div><form className="chat-composer" onSubmit={sendMessage}><textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Your command or thought…" rows={2}/><button type="submit" className="primary-button" disabled={busy || !message.trim()}><ArrowUpRight size={17}/> Send</button></form><p className="tiny-note">Conversation history is saved to your local database. Only approved memories are eligible for memory context.</p></div></section>}
 
       {tab === 'memory' && <section className="content two-column"><div className="panel"><div className="panel-heading"><div><h3>Propose a memory</h3><p>Nothing is saved until you approve its proposal.</p></div><Plus size={20}/></div><form className="stack-form" onSubmit={proposeMemory}><label>Title</label><input value={memoryTitle} onChange={(e) => setMemoryTitle(e.target.value)} maxLength={240} placeholder="e.g. Preferred Java architecture" required/><label>Content</label><textarea value={memoryContent} onChange={(e) => setMemoryContent(e.target.value)} maxLength={20000} rows={6} placeholder="Write the information you want your clone to remember…" required/><button className="primary-button" disabled={busy}><ShieldCheck size={16}/> Request approval</button></form></div><div className="panel"><div className="panel-heading"><div><h3>Approved memories</h3><p>{memories.length} saved items</p></div><BookOpen size={20}/></div>{memories.length === 0 ? <div className="empty-state">No approved memories yet.</div> : <div className="memory-list">{memories.map((item) => <article className="memory-card" key={item.id}><div className="memory-meta"><span>{item.category}</span><small>{new Date(item.created_at).toLocaleDateString()}</small></div><h4>{item.title}</h4><p>{item.content}</p><div className="memory-actions"><button onClick={() => void proposeUpdate(item)}>Propose update</button><button className="danger-text" onClick={() => void proposeDelete(item)}><Trash2 size={14}/> Propose delete</button></div></article>)}</div>}</div></section>}
 
       {tab === 'browser' && <section className="content"><div className="panel browser-panel"><div className="panel-heading"><div><h3>Public web inspection</h3><p>Disposable browser session · GET-only · no saved cookies</p></div><Globe size={21}/></div><form className="browser-form" onSubmit={navigate}><input type="url" value={browserUrl} onChange={(e) => setBrowserUrl(e.target.value)} placeholder="https://example.com" required/><button className="primary-button" disabled={busy}><Globe size={16}/> {busy ? 'Loading…' : 'Open and inspect'}</button></form><div className="notice"><LockKeyhole size={16}/><span>This first milestone cannot click, type, submit forms or sign into websites. Only public HTTPS pages and GET requests are allowed.</span></div>{browserResult && <div className="browser-result"><div className="result-heading"><div><strong>{browserResult.title || 'Untitled page'}</strong><a href={browserResult.final_url} target="_blank" rel="noreferrer">{browserResult.final_url} <ArrowUpRight size={12}/></a></div><span className="safe-pill">Read only</span></div><img src={`data:image/jpeg;base64,${browserResult.screenshot_b64}`} alt="Browser screenshot"/><p className="tiny-note">{browserResult.warning}</p></div>}</div></section>}
 
       {tab === 'approvals' && <section className="content"><div className="panel"><div className="panel-heading"><div><h3>Pending owner decisions</h3><p>Review the exact operation and payload before approval.</p></div><ShieldCheck size={21}/></div>{pendingApprovals.length === 0 ? <div className="empty-state"><Check size={22}/><strong>No pending approvals</strong><span>Any proposed memory change will appear here.</span></div> : <div className="approval-list">{pendingApprovals.map((item) => <article className="approval-card" key={item.id}><div className="approval-heading"><span className="pending-tag">Pending</span><small>{new Date(item.created_at).toLocaleString()}</small></div><h4>{item.action_type}</h4><p>{item.reason}</p><pre>{JSON.stringify({ target_id: item.target_id, payload: item.payload }, null, 2)}</pre><div className="approval-actions"><button className="reject-button" disabled={busy} onClick={() => void decide(item.id, 'reject')}><X size={15}/> Reject</button><button className="primary-button" disabled={busy} onClick={() => void decide(item.id, 'approve')}><Check size={15}/> Approve this exact change</button></div></article>)}</div>}</div></section>}
-      <footer className="footer"><span><Activity size={13}/> Cerepath foundation v0.3.0</span><span>External AI: disabled · Paid services: none · Cloud provisioning: none</span></footer>
+      <footer className="footer"><span><Activity size={13}/> Cerepath workspace v0.4.0</span><span>{status} · Memory changes require your approval</span></footer>
     </main>
   </div>
 }

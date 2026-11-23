@@ -1,5 +1,10 @@
+from __future__ import annotations
+
+import os
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, Sequence
+
+import httpx
 
 
 @dataclass(frozen=True)
@@ -10,22 +15,123 @@ class ModelReply:
 
 
 class ModelProvider(Protocol):
-    """Interface for a future model adapter. Implementations must declare privacy/cost metadata."""
+    """A single explicitly configured chat provider; implementations never auto-fallback."""
 
     name: str
-    async def complete(self, prompt: str) -> ModelReply: ...
+    model: str
+
+    async def complete(self, messages: Sequence[dict[str, str]]) -> ModelReply: ...
 
 
 class NoModelConfigured(RuntimeError):
     pass
 
 
+class ModelProviderError(RuntimeError):
+    pass
+
+
 class DisabledModelProvider:
-    """Default provider. Fails closed and never makes a network request."""
+    """Fails closed when no usable provider has been configured."""
 
     name = "disabled"
+    model = ""
 
-    async def complete(self, prompt: str) -> ModelReply:
-        raise NoModelConfigured(
-            "No model provider is configured. External AI calls are disabled in milestone 0."
+    def __init__(self, reason: str = "No AI provider is configured.") -> None:
+        self.reason = reason
+
+    async def complete(self, messages: Sequence[dict[str, str]]) -> ModelReply:
+        raise NoModelConfigured(self.reason)
+
+
+@dataclass(frozen=True)
+class OpenAICompatibleProvider:
+    """Adapter for OpenAI-compatible /v1/chat/completions endpoints."""
+
+    name: str
+    base_url: str
+    model: str
+    api_key: str = ""
+    proxy: str | None = None
+    timeout_seconds: float = 90.0
+
+    async def complete(self, messages: Sequence[dict[str, str]]) -> ModelReply:
+        if not self.model.strip():
+            raise NoModelConfigured(f"The {self.name} model name is not configured.")
+
+        endpoint = f"{self.base_url.rstrip('/')}/chat/completions"
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        payload = {
+            "model": self.model,
+            "messages": list(messages),
+            "stream": False,
+        }
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=self.timeout_seconds,
+                proxy=self.proxy,
+                trust_env=False,
+            ) as client:
+                response = await client.post(endpoint, headers=headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+        except httpx.TimeoutException as exc:
+            raise ModelProviderError(f"{self.name} did not respond before the timeout.") from exc
+        except httpx.HTTPStatusError as exc:
+            # Do not echo provider response bodies: they may contain sensitive request details.
+            raise ModelProviderError(
+                f"{self.name} returned HTTP {exc.response.status_code}."
+            ) from exc
+        except (httpx.HTTPError, ValueError) as exc:
+            raise ModelProviderError(f"Could not communicate with {self.name}.") from exc
+
+        try:
+            content = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ModelProviderError(f"{self.name} returned an unsupported chat response.") from exc
+
+        if isinstance(content, list):
+            content = "".join(
+                part.get("text", "") for part in content if isinstance(part, dict)
+            )
+        if not isinstance(content, str) or not content.strip():
+            raise ModelProviderError(f"{self.name} returned an empty assistant response.")
+
+        return ModelReply(text=content.strip(), provider=self.name, model=self.model)
+
+
+def build_model_provider() -> ModelProvider:
+    """Build exactly the configured provider. No paid or remote fallback is automatic."""
+    selected = os.getenv("AI_PROVIDER", "disabled").strip().lower()
+
+    if selected in {"", "disabled", "none"}:
+        return DisabledModelProvider()
+
+    if selected == "bynara":
+        api_key = os.getenv("BYNARA_API_KEY", "").strip()
+        if not api_key or api_key.startswith("CHANGE_ME"):
+            return DisabledModelProvider("Set BYNARA_API_KEY in your local .env to enable Bynara.")
+        return OpenAICompatibleProvider(
+            name="bynara",
+            base_url=os.getenv("BYNARA_BASE_URL", "https://router.bynara.id/v1"),
+            model=os.getenv("BYNARA_MODEL", "gpt-5.6-luna"),
+            api_key=api_key,
+            proxy=os.getenv("AI_HTTP_PROXY", "http://egress-proxy:3128").strip() or None,
         )
+
+    if selected == "ollama":
+        return OpenAICompatibleProvider(
+            name="ollama",
+            base_url=os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434/v1"),
+            model=os.getenv("OLLAMA_MODEL", "qwen2.5:7b"),
+            api_key=os.getenv("OLLAMA_API_KEY", "").strip(),
+            proxy=None,
+        )
+
+    return DisabledModelProvider(
+        f"Unsupported AI_PROVIDER '{selected}'. Choose 'bynara', 'ollama', or 'disabled'."
+    )

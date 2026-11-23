@@ -11,9 +11,8 @@
 - [x] HTTPS-only browser navigation and GET interception
 - [x] Isolated CONNECT egress proxy with DNS validation and IP pinning
 - [x] Non-root browser container, sandbox, read-only filesystem and seccomp
-- [x] No cloud provisioning or external AI calls
 
-## Milestone 0.1 — Community foundation (this branch)
+## Milestone 0.1 — Community foundation
 
 - [x] CEREPATH branding
 - [x] Apache-2.0 license and NOTICE
@@ -21,18 +20,18 @@
 - [x] Issue and pull-request templates
 - [x] CI for Python tests, frontend build and container builds
 - [x] Browser egress separation and policy tests
-- [ ] Production identity system
-- [ ] Full integration tests against PostgreSQL
 - [ ] Host-level egress firewall verification
 
-## Milestone 1 — User identity and durable memory
+## Milestone 1 — Personal identity and durable memory
 
-The first PR establishes a local single-owner identity/session substrate. It does not enable public multi-user registration or production identity.
+The first release remains local and single-owner.
 
 - [x] Single local owner identity and revocable HTTP-only sessions
 - [x] CSRF protection for cookie-authenticated writes
 - [x] User ownership columns and application-level query scoping
 - [x] PostgreSQL migration integration test with existing-record backfill and repeatability checks
+- [x] Owner-scoped persistent chat conversations and messages
+- [x] Conversation history list and reload in the UI
 - [ ] Passkeys/OIDC, account provisioning and device/session management UI
 - [ ] PostgreSQL row-level security and multi-user tenant-isolation integration tests
 - [ ] User profile and editable identity model
@@ -43,13 +42,17 @@ The first PR establishes a local single-owner identity/session substrate. It doe
 
 ## Milestone 2 — Intelligence orchestration
 
-- [ ] Provider adapter interface
-- [ ] Local-model adapter and capability/latency benchmarks
-- [ ] Optional external model adapter, disabled by default
+- [x] Provider adapter interface
+- [x] OpenAI-compatible hosted adapter for Bynara
+- [x] Optional local Ollama-compatible adapter
+- [x] Explicit environment-based provider selection and no automatic fallback
+- [x] Persistent chat completion with bounded recent history
+- [x] Bounded retrieval of approved memories into model context (lexical v1)
+- [ ] Streaming responses
 - [ ] Fast/deep task routing
 - [ ] Bounded specialist roles and verifier
 - [ ] Token, compute and free-quota budget enforcement
-- [ ] No automatic provider fallback that can incur charges
+- [ ] No automatic provider fallback that can incur charges (policy is implemented; add budget controls)
 
 ## Milestone 3 — Browser agent
 

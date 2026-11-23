@@ -1,10 +1,12 @@
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, HttpUrl
 
 
 class ChatInput(BaseModel):
     message: str = Field(min_length=1, max_length=8000)
+    conversation_id: UUID | None = None
 
 
 class BootstrapLogin(BaseModel):
