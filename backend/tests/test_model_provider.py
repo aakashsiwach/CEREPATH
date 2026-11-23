@@ -70,6 +70,9 @@ def test_openai_compatible_provider_sends_expected_chat_payload(monkeypatch):
     captured = {}
 
     class FakeResponse:
+        status_code = 200
+        headers = {}
+
         def raise_for_status(self):
             return None
 
@@ -116,6 +119,9 @@ def test_openai_compatible_provider_sends_expected_chat_payload(monkeypatch):
 
 def test_provider_does_not_leak_upstream_error_body(monkeypatch):
     class FakeResponse:
+        status_code = 401
+        headers = {}
+
         def raise_for_status(self):
             request = httpx.Request("POST", "https://router.bynara.id/v1/chat/completions")
             response = httpx.Response(401, request=request, text="sensitive upstream content")
