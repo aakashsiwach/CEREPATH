@@ -9,7 +9,7 @@ def required_env(name: str) -> str:
 
 
 DATABASE_URL = required_env("DATABASE_URL")
-AAKASH_ADMIN_TOKEN = required_env("AAKASH_ADMIN_TOKEN")
+CEREPATH_OWNER_TOKEN = required_env("CEREPATH_OWNER_TOKEN")
 BROWSER_INTERNAL_TOKEN = required_env("BROWSER_INTERNAL_TOKEN")
 BROWSER_AGENT_URL = os.getenv("BROWSER_AGENT_URL", "http://browser-agent:8001").rstrip("/")
 APP_ENV = os.getenv("APP_ENV", "local")

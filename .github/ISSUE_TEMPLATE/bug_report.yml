@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible defect in Cerepath.
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not include passwords, tokens, private memories, personal data, or sensitive screenshots.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear description of the defect.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Start the local stack...\n2. Open...\n3. Observe..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit SHA or version
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Local Docker Compose
+        - Linux host
+        - macOS host
+        - Windows with WSL2
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Remove secrets, tokens, personal data and private URLs.
+    validations:
+      required: false

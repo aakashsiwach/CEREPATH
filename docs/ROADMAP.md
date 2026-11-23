@@ -1,6 +1,6 @@
 # Roadmap
 
-## Milestone 0 — Safe local foundation (this bundle)
+## Milestone 0 — Safe local foundation
 
 - [x] React PWA shell
 - [x] FastAPI control plane
@@ -8,12 +8,28 @@
 - [x] Exact-action memory approvals
 - [x] Audit events
 - [x] Separate read-only Playwright browser service
+- [x] HTTPS-only browser navigation and GET interception
+- [x] Isolated CONNECT egress proxy with DNS validation and IP pinning
+- [x] Non-root browser container, sandbox, read-only filesystem and seccomp
 - [x] No cloud provisioning or external AI calls
 
-## Milestone 1 — Owner identity and durable memory
+## Milestone 0.1 — Community foundation (this branch)
+
+- [x] CEREPATH branding
+- [x] Apache-2.0 license and NOTICE
+- [x] Community contribution and conduct files
+- [x] Issue and pull-request templates
+- [x] CI for Python tests, frontend build and container builds
+- [x] Browser egress separation and policy tests
+- [ ] Production identity system
+- [ ] Full integration tests against PostgreSQL
+- [ ] Host-level egress firewall verification
+
+## Milestone 1 — User identity and durable memory
 
 - [ ] Passkeys/OIDC and device/session management
-- [ ] Owner profile and editable identity model
+- [ ] Tenant isolation and user-level data access policies
+- [ ] User profile and editable identity model
 - [ ] Document import with explicit consent
 - [ ] Provenance and confidence review UI
 - [ ] Memory export, encrypted backup and restore drills
@@ -34,9 +50,9 @@
 - [ ] Persistent isolated browser sessions
 - [ ] Visible activity stream and screenshots
 - [ ] Page text extraction with prompt-injection isolation
-- [ ] Explicit allowlists and hardened egress proxy
+- [ ] Hardened egress proxy and network verification
 - [ ] Read-only browser regression suite
-- [ ] Click/type/form actions disabled until action-level approval is implemented and tested
+- [ ] Click/type/form actions disabled until action-level approvals are implemented and tested
 
 ## Milestone 4 — Skill Forge and Research Lab
 
