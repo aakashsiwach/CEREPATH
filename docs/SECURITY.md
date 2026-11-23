@@ -22,9 +22,10 @@ An approval is one-time and payload-specific. It cannot authorize a different pa
 - Conversation and message records scoped to the authenticated owner in application queries and linked through an owner-aware database foreign key.
 - Model provider credentials are read from the API process environment and are never sent to the frontend or stored in chat history.
 - Only one configured model provider is active; there is no automatic paid-provider fallback.
-- Bynara HTTPS requests use the CONNECT-only egress proxy, which validates DNS results and pins the upstream TCP connection to public IPs on port 443.
+- Bynara and Gemini HTTPS requests use the CONNECT-only egress proxy, which validates DNS results and pins the upstream TCP connection to public IPs on port 443.
 - Optional Ollama requests target a local host runtime and bypass the public proxy.
-- When Bynara is enabled, current chat text, bounded recent conversation history and up to eight relevant approved memories can be sent to the configured Bynara endpoint. This is an explicit configuration choice; review the provider's privacy and billing terms first.
+- When Bynara or Gemini is enabled, current chat text, bounded recent conversation history and up to eight relevant approved memories can be sent to the selected provider.
+- Gemini Developer API free-tier content may be used by Google to improve its products. Do not send private memories, confidential information or credentials through a free-tier Gemini key. Review the provider's current terms and pricing before enabling it.
 - Browser uses a disposable context without retained cookies.
 - Browser allows HTTPS on port 443 only and aborts non-GET requests.
 - Browser container runs as non-root with Chromium sandbox, read-only filesystem, dropped capabilities, resource limits and seccomp.
