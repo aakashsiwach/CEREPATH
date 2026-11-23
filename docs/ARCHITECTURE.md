@@ -32,12 +32,11 @@ Phone / Laptop / Desktop
  Conversations / memories / approvals        Egress proxy
           |                                      |
    OpenAI-compatible provider          DNS validation + IP pinning
-      (Bynara or local Ollama)                    |
+  (Bynara, Gemini or local Ollama)                  |
           |                                  Public Internet
-     Bynara through proxy
 ```
 
-The API and database have no direct outbound route. Bynara calls use the CONNECT-only egress proxy on HTTPS port 443. Ollama can be reached through the Docker host gateway and does not use the public proxy. The browser uses the same restricted proxy for public HTTPS navigation.
+The API and database have no direct outbound route. Bynara and Gemini calls use the CONNECT-only egress proxy on HTTPS port 443. Ollama can be reached through the Docker host gateway and does not use the public proxy. The browser uses the same restricted proxy for public HTTPS navigation.
 
 ## Frontend
 
@@ -49,7 +48,7 @@ The chat interface lists saved owner conversations, loads message history and cr
 
 FastAPI authenticates the owner, scopes conversation and memory queries by user ID, validates proposed memory operations, stores approvals, applies approved memory changes transactionally and writes audit events.
 
-The intelligence layer exposes a small provider protocol and an OpenAI-compatible adapter. The Bynara configuration uses the supplied base URL and model. The optional Ollama configuration targets a local OpenAI-compatible endpoint. Only one provider is selected per API process; no automatic fallback is performed. The API key is read from the server environment and is not stored in PostgreSQL.
+The intelligence layer exposes a small provider protocol and a shared OpenAI-compatible adapter. Supported hosted providers are Bynara and Google's Gemini Developer API; optional Ollama targets a local OpenAI-compatible endpoint. Gemini uses Google's documented `/v1beta/openai/chat/completions` compatibility path and Bearer API-key authentication. Only one provider is selected per API process; no automatic fallback is performed. Provider keys are read from the server environment and are not stored in PostgreSQL.
 
 Chat requests store the user message before calling the provider, then persist the assistant reply and provider/model metadata. Failed provider calls leave a failed user-message record rather than silently losing the prompt. The model receives a bounded recent conversation and a bounded set of approved memories. Memory retrieval is lexical in this release; pgvector embeddings are not yet generated.
 
