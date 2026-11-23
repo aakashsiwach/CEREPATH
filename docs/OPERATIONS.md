@@ -16,29 +16,6 @@ Create an API key in Google AI Studio and set:
 ```dotenv
 AI_PROVIDER=gemini
 GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-GEMINI_MODEL=gemini-3.8-flash
-GEMINI_API_KEY=YOUR_GEMINI_API_KEY
-AI_HTTP_PROXY=http://egress-proxy:3128
-```
-
-The API uses Google's OpenAI-compatible Chat Completions endpoint. The key remains in the API container environment and is sent as a Bearer token; it is never passed to the browser. The Gemini requests use the HTTPS CONNECT egress proxy.
-
-The Gemini Developer API free tier has model-specific access and rate limits. Google states that free-tier content may be used to improve its products. Do not send private memories, confidential information, credentials or sensitive personal data through a free-tier key. Check the current provider pricing and terms before using the API.
-
-Recreate the API after changing environment values:
-
-```bash
-docker compose up -d --force-recreate api
-docker compose logs -f api
-```
-
-## Configure Google Gemini
-
-Create an API key in Google AI Studio and set:
-
-```dotenv
-AI_PROVIDER=gemini
-GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
 GEMINI_MODEL=gemini-3.6-flash
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 AI_HTTP_PROXY=http://egress-proxy:3128
