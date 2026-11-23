@@ -83,3 +83,45 @@ jobs:
         run: docker build -t cerepath-egress-proxy:ci egress_proxy
       - name: Build frontend image
         run: docker build -t cerepath-web:ci frontend
+
+  postgres-integration:
+    name: PostgreSQL identity migration integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: cerepath_test
+          POSTGRES_USER: cerepath
+          POSTGRES_PASSWORD: cerepath-ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cerepath -d cerepath"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      PYTHONPATH: ${{ github.workspace }}/backend
+      DATABASE_URL: postgresql://cerepath:cerepath-ci@localhost:5432/cerepath_test
+      CEREPATH_TEST_DATABASE_URL: postgresql://cerepath:cerepath-ci@localhost:5432/cerepath_test
+      CEREPATH_OWNER_TOKEN: ci-owner-token-that-is-long-enough
+      BROWSER_INTERNAL_TOKEN: ci-browser-token-that-is-long-enough
+    steps:
+      - name: Check out source
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Test PostgreSQL migration and existing-data backfill
+        working-directory: backend
+        run: pytest -q tests/test_postgres_migrations.py

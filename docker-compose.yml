@@ -78,6 +78,8 @@ services:
       BROWSER_INTERNAL_TOKEN: ${BROWSER_INTERNAL_TOKEN:?Set BROWSER_INTERNAL_TOKEN in .env}
       BROWSER_AGENT_URL: http://browser-agent:8001
       APP_ENV: ${APP_ENV:-local}
+      CEREPATH_SESSION_TTL_HOURS: ${CEREPATH_SESSION_TTL_HOURS:-12}
+      RUN_DB_MIGRATIONS: "true"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
       db:
