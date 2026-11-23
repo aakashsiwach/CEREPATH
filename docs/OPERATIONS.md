@@ -9,6 +9,29 @@ docker compose up --build -d
 docker compose ps
 ```
 
+## Configure Google Gemini
+
+Create an API key in Google AI Studio and set:
+
+```dotenv
+AI_PROVIDER=gemini
+GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+GEMINI_MODEL=gemini-3.8-flash
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+AI_HTTP_PROXY=http://egress-proxy:3128
+```
+
+The API uses Google's OpenAI-compatible Chat Completions endpoint. The key remains in the API container environment and is sent as a Bearer token; it is never passed to the browser. The Gemini requests use the HTTPS CONNECT egress proxy.
+
+The Gemini Developer API free tier has model-specific access and rate limits. Google states that free-tier content may be used to improve its products. Do not send private memories, confidential information, credentials or sensitive personal data through a free-tier key. Check the current provider pricing and terms before using the API.
+
+Recreate the API after changing environment values:
+
+```bash
+docker compose up -d --force-recreate api
+docker compose logs -f api
+```
+
 ## Configure Bynara
 
 In `.env`, set:
@@ -45,7 +68,7 @@ OLLAMA_MODEL=qwen2.5:7b
 AI_HTTP_PROXY=
 ```
 
-The API container maps `host.docker.internal` to the Docker host gateway. Restart the API after editing `.env`. Ollama traffic does not use the public egress proxy.
+The API container maps `host.docker.internal` to the Docker host gateway. Restart the API after editing `.env`. Ollama traffic does not use the public proxy.
 
 ## Disable AI calls
 
@@ -86,7 +109,9 @@ This permanently deletes the database volume. Export first.
 
 - `401` from login: check the token pasted into the UI matches `CEREPATH_OWNER_TOKEN` in `.env`.
 - `503` from chat: check `AI_PROVIDER` and make sure the selected provider's API key/model is configured.
-- `502` from chat: check Bynara key/model access, DNS and `docker compose logs egress-proxy`. The API deliberately does not return upstream response bodies.
+- `502` from chat: check the selected provider key/model, DNS and `docker compose logs egress-proxy`. The API deliberately does not return upstream response bodies.
+- `403` from a provider: check the account's model entitlement, API plan and account status. Do not assume a public model catalogue guarantees key-level access.
+- Gemini free-tier privacy: don't send private memory or confidential data; the provider may use free-tier content to improve products.
 - Ollama connection error: ensure Ollama is running on the host, the model is pulled, and `OLLAMA_BASE_URL` points to the host runtime.
 - Database unavailable: inspect `docker compose ps` and `docker compose logs db`.
 - Browser unavailable: inspect browser-agent and egress-proxy logs; check shared memory and RAM.
