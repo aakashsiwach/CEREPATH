@@ -11,6 +11,12 @@ CONNECT_TIMEOUT_SECONDS = 10
 IDLE_TIMEOUT_SECONDS = 120
 
 
+def _is_public_unicast(address: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
+    return address.is_global and not address.is_multicast and not address.is_reserved
+
+
 def parse_connect_target(request_line: str) -> tuple[str, int]:
     parts = request_line.strip().split()
     if len(parts) != 3 or parts[0].upper() != "CONNECT" or parts[2] not in {"HTTP/1.0", "HTTP/1.1"}:
@@ -34,8 +40,8 @@ def parse_connect_target(request_line: str) -> tuple[str, int]:
         literal = ipaddress.ip_address(host)
     except ValueError:
         literal = None
-    if literal is not None and not literal.is_global:
-        raise ValueError("Only publicly routable IP addresses are allowed")
+    if literal is not None and not _is_public_unicast(literal):
+        raise ValueError("Only publicly routable unicast IP addresses are allowed")
     return host, port
 
 
@@ -43,8 +49,8 @@ def validate_global_addresses(values: list[str]) -> list[ipaddress.IPv4Address |
     if not values:
         raise ValueError("Destination has no resolved addresses")
     addresses = [ipaddress.ip_address(value.split("%", 1)[0]) for value in values]
-    if any(not address.is_global for address in addresses):
-        raise ValueError("Destination resolves to a non-public address")
+    if any(not _is_public_unicast(address) for address in addresses):
+        raise ValueError("Destination resolves to a non-public or non-unicast address")
     return addresses
 
 
