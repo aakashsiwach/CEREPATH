@@ -133,7 +133,7 @@ def build_model_provider() -> ModelProvider:
                 "GEMINI_BASE_URL",
                 "https://generativelanguage.googleapis.com/v1beta/openai",
             ),
-            model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
+            model=os.getenv("GEMINI_MODEL", "gemini-3.6-flash"),
             api_key=api_key,
             proxy=os.getenv("AI_HTTP_PROXY", "http://egress-proxy:3128").strip() or None,
         )
