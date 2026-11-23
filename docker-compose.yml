@@ -109,7 +109,9 @@ services:
     depends_on: [api]
     mem_limit: 256m
     cpus: "0.10"
-    networks: [browser_control]
+    # Needs the isolated control network to proxy /api to the API service,
+    # plus a regular bridge network so Docker can publish the host ingress port.
+    networks: [browser_control, web_ingress]
 
 volumes:
   postgres_data:
@@ -120,3 +122,6 @@ networks:
   browser_control:
     internal: true
   browser_egress:
+  # Only the Nginx web gateway joins this network; host access remains loopback-only.
+  web_ingress:
+    driver: bridge
