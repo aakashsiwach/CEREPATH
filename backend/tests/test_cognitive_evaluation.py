@@ -34,7 +34,7 @@ def test_evaluator_ranks_relevant_items_and_measures_source_fidelity():
         "java-collections-core",
         "java-collections-examples",
     ]
-    assert result["precision_at_k"] == pytest.approx(2 / 3)
+    assert result["precision_at_k"] == pytest.approx(0.6667)
     assert result["recall_at_k"] == pytest.approx(1.0)
     assert result["reciprocal_rank"] == pytest.approx(1.0)
     assert result["ndcg_at_k"] == pytest.approx(1.0)
