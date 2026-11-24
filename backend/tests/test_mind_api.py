@@ -72,7 +72,9 @@ class MindDatabase:
             return Cursor(row=row)
 
         if normalized.startswith("insert into cognitive_experiences"):
-            experience_id, user_id, event_type, knowledge_id, source_type, details = params
+            experience_id, user_id, knowledge_id, details = params
+            event_type = "lesson_encoded" if "'lesson_encoded'" in normalized else "feedback"
+            source_type = "owner_taught" if event_type == "lesson_encoded" else "owner_feedback"
             self.experiences.append({
                 "id": experience_id,
                 "user_id": user_id,
