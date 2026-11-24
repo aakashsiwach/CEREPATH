@@ -69,6 +69,7 @@ class _HTMLTextExtractor(HTMLParser):
 
 def _clean_text(value: str) -> str:
     value = value.replace("\x00", " ")
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
     value = re.sub(r"[ \t]+", " ", value)
     value = re.sub(r" *\n *", "\n", value)
     value = re.sub(r"\n{3,}", "\n\n", value)
