@@ -26,6 +26,7 @@ from .policy import validate_memory_proposal
 from .schemas import ApprovalCreate, ApprovalDecision, BootstrapLogin, BrowserNavigate
 from .security import require_owner
 from .intelligence.chat import router as chat_router
+from .intelligence.mind import router as mind_router
 from .intelligence.provider import DisabledModelProvider, build_model_provider
 
 
@@ -358,3 +359,4 @@ async def browser_navigate(
 
 
 app.include_router(chat_router)
+app.include_router(mind_router)

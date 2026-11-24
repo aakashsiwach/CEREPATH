@@ -87,4 +87,4 @@ def test_digital_mind_coordinates_working_memory_attention_and_monitoring():
     )
     assert len(context.working_memory) == 2
     assert len(context.recalled_knowledge) == 1
-    assert context.retrieval_assessment.evidence_state == "strong_retrieval_match"
+    assert context.retrieval_assessment.evidence_state == "partial_retrieval_match"

@@ -13,7 +13,7 @@ class BaddeleyWorkingMemory:
     """
 
     def __init__(self, capacity_items: int = 16, capacity_characters: int = 18_000) -> None:
-        if capacity_items < 1 or capacity_characters < 256:
+        if capacity_items < 1 or capacity_characters < 1:
             raise ValueError("Working-memory capacity must be positive and usable")
         self.capacity_items = capacity_items
         self.capacity_characters = capacity_characters

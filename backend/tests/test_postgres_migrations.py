@@ -27,6 +27,7 @@ def test_identity_migration_backfills_existing_records_and_is_repeatable(monkeyp
     with psycopg.connect(database_url) as conn:
         conn.execute("DROP SCHEMA public CASCADE")
         conn.execute("CREATE SCHEMA public")
+        conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
         conn.execute(
             """
             CREATE TABLE memories (
@@ -85,12 +86,20 @@ def test_identity_migration_backfills_existing_records_and_is_repeatable(monkeyp
         message_table = conn.execute(
             "SELECT to_regclass('public.chat_messages') IS NOT NULL"
         ).fetchone()[0]
+        semantic_table = conn.execute(
+            "SELECT to_regclass('public.semantic_knowledge') IS NOT NULL"
+        ).fetchone()[0]
+        experience_table = conn.execute(
+            "SELECT to_regclass('public.cognitive_experiences') IS NOT NULL"
+        ).fetchone()[0]
 
     assert memory[0] == owner_id
     assert approval[0] == owner_id
     assert audit[0] == owner_id
     assert owner_count == 1
-    assert migration_count == 2
+    assert migration_count == 3
     assert session_table is True
     assert conversation_table is True
     assert message_table is True
+    assert semantic_table is True
+    assert experience_table is True
