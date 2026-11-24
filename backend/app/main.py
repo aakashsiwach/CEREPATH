@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import secrets
 import uuid
 from contextlib import asynccontextmanager
@@ -26,6 +27,7 @@ from .policy import validate_memory_proposal
 from .schemas import ApprovalCreate, ApprovalDecision, BootstrapLogin, BrowserNavigate
 from .security import require_owner
 from .intelligence.chat import router as chat_router
+from .intelligence.mind import router as mind_router
 from .intelligence.provider import DisabledModelProvider, build_model_provider
 
 
@@ -164,6 +166,11 @@ def status(_: str = Depends(require_owner)) -> dict:
         "external_model_calls_enabled": enabled and provider.name != "ollama",
         "memory_write_policy": "owner_approval_required",
         "memory_retrieval": "approved_owner_memories_only",
+        "embedding_provider": os.getenv("EMBEDDING_PROVIDER", "disabled").strip().lower(),
+        "cognitive_architecture": "cognitive_kernel_v0.1",
+        "cognitive_knowledge_store": "owner_scoped_postgresql_full_text_and_pgvector",
+        "episodic_memory": "conversation_episodes_indexed_locally",
+        "learning_system": "owner_rated_sm2_spaced_retrieval",
         "browser_mode": "https_read_only_via_egress_proxy",
     }
 
@@ -356,3 +363,4 @@ async def browser_navigate(
 
 
 app.include_router(chat_router)
+app.include_router(mind_router)

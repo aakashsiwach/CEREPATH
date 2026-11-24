@@ -2,9 +2,9 @@
 
 **Intelligence, built together.**
 
-Cerepath is a local-first personal AI workspace built around user-owned identity, approved memory, model-independent chat and restricted browser access. The first real chat milestone is implemented: conversations are persisted, recent history is sent to the configured OpenAI-compatible model, and relevant approved memories can be added as bounded context.
+Cerepath is a local-first personal intelligence workspace with a neuroscience-informed **Digital Mind cognitive kernel**. It separates owner-taught semantic knowledge and experience records from the language model, uses bounded working memory and goal-directed attention, and records owner feedback for review. The selected LLM is a replaceable language/reasoning interface, not the source of Cerepath's identity or durable knowledge.
 
-> **Status: early development.** This is a personal, single-owner local application—not a finished autonomous agent or a public multi-user service. Chat uses one configured model provider and non-streaming completions. Semantic/vector retrieval, tool orchestration, browser interaction and production identity are still future work.
+> **Status: early development.** This is a personal, single-owner local application—not a biological brain, conscious system, finished autonomous agent or public multi-user service. The first cognitive kernel is an explicit, testable software architecture inspired by cognitive-science models. It does not reproduce neural tissue, subjective experience or human intelligence.
 
 ## Implemented
 
@@ -15,8 +15,15 @@ Cerepath is a local-first personal AI workspace built around user-owned identity
 - OpenAI-compatible Bynara adapter.
 - OpenAI-compatible Google Gemini Developer API adapter.
 - Optional local Ollama through its OpenAI-compatible API.
+- Neuroscience-informed cognitive kernel: bounded working memory, episodic trace indexing, owner-taught semantic knowledge, deterministic attention ranking, retrieval evidence monitoring and owner feedback signals.
+- Owner-scoped cognitive experiences and semantic knowledge stored in PostgreSQL.
+- Hybrid knowledge recall combines PostgreSQL full-text search with optional local Ollama embeddings and pgvector.
+- Explicit feedback can move incorrect owner-taught knowledge to a review queue; repeated teaching of identical normalized content reinforces one record rather than duplicating it.
+- Owner document ingestion for PDF, DOCX, PPTX, XLSX, TXT, Markdown, RST, CSV, JSON, XML, YAML and HTML. Original bytes remain in PostgreSQL, with extracted text, overlapping chunks, SHA-256 deduplication and PDF page provenance.
+- Optional local Ollama embeddings (`all-minilm`, 384 dimensions) for semantic recall; PostgreSQL full-text recall remains available when embeddings are disabled or unavailable.
+- Owner-managed concept graph with explicit, source-linked relationships; no automatic model-invented edges.
 - Approved-memory retrieval for chat context (bounded lexical matching in this version).
-- Hosted providers receive no approved memories by default; matching memory sharing requires explicit server-side opt-in. Local Ollama can use matching approved memories.
+- Hosted providers receive no approved memories, semantic knowledge, document passages or episodic history by default; relevant local context is shared only with explicit server-side opt-in. Local Ollama can retrieve it without the remote-sharing opt-in.
 - No automatic provider fallback; a missing or failing provider returns an explicit error.
 - Memory add/update/delete still require your approval.
 - Read-only Playwright browser, HTTPS-only navigation and CONNECT egress proxy with DNS validation/IP pinning.
@@ -49,7 +56,7 @@ AI_HTTP_PROXY=http://egress-proxy:3128
 
 Cerepath uses Google's documented OpenAI-compatible Chat Completions endpoint at `/v1beta/openai/chat/completions` and sends the key as a Bearer token. The API container routes Gemini HTTPS requests through the restricted CONNECT egress proxy.
 
-The Gemini Developer API free tier offers free input/output tokens for selected models, subject to model access and rate limits. Free-tier content may be used by Google to improve its products. Cerepath keeps approved memories out of hosted Gemini requests by default; enabling `REMOTE_PROVIDER_MEMORY_SHARING=true` sends only matching approved memories. Your prompt and bounded conversation history are still sent. Do not send confidential information, credentials or sensitive personal data through a free-tier Gemini key. Review Google's current [pricing](https://ai.google.dev/gemini-api/docs/pricing) and [terms](https://ai.google.dev/gemini-api/terms) before enabling it. Paid-tier data handling differs; verify the terms for your actual account tier.
+The Gemini Developer API free tier offers free input/output tokens for selected models, subject to model access and rate limits. Free-tier content may be used by Google to improve its products. Cerepath keeps approved memories and all other local knowledge (semantic lessons, document passages and episodic history) out of hosted Gemini requests by default; enabling `REMOTE_PROVIDER_MEMORY_SHARING=true` opts into relevant, bounded local context. Your prompt and bounded conversation history are still sent. Do not send confidential information, credentials or sensitive personal data through a free-tier Gemini key. Review Google's current [pricing](https://ai.google.dev/gemini-api/docs/pricing) and [terms](https://ai.google.dev/gemini-api/terms) before enabling it. Paid-tier data handling differs; verify the terms for your actual account tier.
 
 ### Bynara
 
@@ -81,6 +88,26 @@ AI_HTTP_PROXY=
 ```
 
 The API container maps `host.docker.internal` to the host gateway for Docker Engine on Linux. Ollama requests bypass the public egress proxy and target the local host runtime.
+
+### Local document embeddings
+
+Document ingestion works with full-text search even if no embedding model is installed. For semantic vector search, run Ollama on the host and install the 384-dimensional embedding model:
+
+```bash
+ollama pull all-minilm
+```
+
+Then set these values in `.env`:
+
+```dotenv
+EMBEDDING_PROVIDER=ollama
+OLLAMA_EMBEDDING_BASE_URL=http://host.docker.internal:11434
+OLLAMA_EMBEDDING_MODEL=all-minilm
+```
+
+Embedding requests go directly to the local Ollama host and do not use Gemini, Bynara or a hosted embedding API. Keep `REMOTE_PROVIDER_MEMORY_SHARING=false` to prevent approved memories, semantic knowledge, document passages and episodic memories from being added to hosted model prompts. With sharing disabled, hosted LLMs still receive the current prompt and bounded conversation history, but not local knowledge records.
+
+Supported document types are PDF, DOCX, PPTX, XLSX, TXT, Markdown, RST, CSV, JSON, XML, YAML and HTML. Scanned PDFs without selectable text need OCR and are rejected rather than silently indexed as empty. Each upload is limited to 20 MiB and one million extracted characters. The original file, extracted text and chunk provenance are retained in PostgreSQL; duplicate files are detected by SHA-256.
 
 ### Disable model calls
 
@@ -136,7 +163,22 @@ All application endpoints except health and local bootstrap login require an aut
 | GET | `/api/health` | Liveness check |
 | POST | `/api/auth/login` | Local owner bootstrap login |
 | GET | `/api/status` | Selected provider and runtime status |
-| POST | `/api/chat` | Generate and persist one chat turn |
+| POST | `/api/chat` | Generate and persist one chat turn using the cognitive context pipeline |
+| POST | `/api/mind/teach` | Store an explicit owner-taught knowledge item |
+| GET | `/api/mind/knowledge` | List active and review-queued knowledge |
+| GET | `/api/mind/recall?q=...` | Hybrid recall across owner knowledge, documents and previous conversations |
+| POST | `/api/mind/feedback` | Record helpful/incomplete/incorrect feedback |
+| GET | `/api/mind/state` | Inspect cognitive-kernel counters and configuration |
+| POST | `/api/mind/documents` | Ingest a local document and index its text |
+| GET | `/api/mind/sources` | List ingested knowledge sources |
+| GET | `/api/mind/sources/{id}/download` | Download the preserved original source |
+| POST | `/api/mind/sources/{id}/archive` | Exclude a source from recall without deleting its original |
+| GET | `/api/mind/graph` | List owner-managed concepts and relations |
+| POST | `/api/mind/concepts` | Create or update a concept |
+| POST | `/api/mind/relations` | Create an owner-verified concept relation |
+| GET | `/api/mind/episodic-memories` | List locally stored conversation episodes |
+| GET | `/api/mind/reviews/due` | Get lessons due for retrieval practice |
+| POST | `/api/mind/reviews/{knowledge_id}` | Rate recall and schedule the next review |
 | GET | `/api/conversations` | List the owner's conversations |
 | GET | `/api/conversations/{id}/messages` | Load one owner's conversation history |
 | GET | `/api/memories` | List approved memories |
@@ -186,14 +228,16 @@ GitHub Actions validates Python tests, frontend type-check/build, Docker Compose
 ## Known limitations / next milestones
 
 - Chat responses are currently non-streaming.
-- Memory retrieval is lexical and bounded; pgvector embeddings and semantic/hybrid search are not implemented yet.
-- No tool execution, multi-agent orchestration, automatic memory extraction or browser write actions.
+- Document and chunk recall uses PostgreSQL full-text search, with optional local Ollama vector similarity and hybrid ranking. The vector model is configured independently of the chat LLM.
+- Concept relationships are owner-created/verified. Completed chats are also indexed as local episodic memories; hosted providers receive episodic/semantic/document context only when the existing privacy opt-in is enabled.
+- Taught concepts are scheduled for owner-rated active-recall reviews using an SM-2-inspired scheduler. Safe semantic consolidation, contradiction resolution, automatic concept extraction from documents and sleep-like replay remain future work.
+- Semantic claims from model answers are not silently promoted into durable knowledge; broad tool orchestration and browser write actions remain future work.
 - OIDC/passkeys, multi-user registration, PostgreSQL row-level security and device management are not implemented.
 - No encrypted automated backups or restore drills.
 - The browser remains read-only; it cannot click, type, submit forms or sign in.
 - This is not a production security certification. Do not expose the local starter publicly.
 
-Read [Architecture](docs/ARCHITECTURE.md), [Security](docs/SECURITY.md), [Operations](docs/OPERATIONS.md) and the [Roadmap](docs/ROADMAP.md) before extending or deploying it.
+Read [Architecture](docs/ARCHITECTURE.md), [Neuroscience Foundations](docs/NEUROSCIENCE_FOUNDATIONS.md), [Security](docs/SECURITY.md), [Operations](docs/OPERATIONS.md) and the [Roadmap](docs/ROADMAP.md) before extending or deploying it.
 
 ## Community
 

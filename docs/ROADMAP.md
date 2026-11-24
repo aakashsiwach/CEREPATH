@@ -35,10 +35,31 @@ The first release remains local and single-owner.
 - [ ] Passkeys/OIDC, account provisioning and device/session management UI
 - [ ] PostgreSQL row-level security and multi-user tenant-isolation integration tests
 - [ ] User profile and editable identity model
-- [ ] Document import with explicit consent
+- [x] Owner-initiated document import with original-file retention and source provenance
 - [ ] Provenance and confidence review UI
 - [ ] Memory export, encrypted backup and restore drills
-- [ ] Semantic embeddings (local model first) and hybrid retrieval
+- [x] Optional local Ollama embeddings and lexical/vector hybrid recall
+
+## Milestone 1.1 — Digital Mind cognitive kernel
+
+- [x] Bounded working memory inspired by Baddeley and Hitch
+- [x] Episodic trace hashing and provenance inspired by hippocampal indexing / complementary learning systems
+- [x] Owner-taught semantic knowledge with duplicate-aware reinforcement
+- [x] Goal-directed selective attention and relevance ranking
+- [x] Metacognitive retrieval-coverage reporting
+- [x] Explicit owner feedback and reward-prediction-error metric
+- [x] Incorrect knowledge quarantine and review status
+- [x] Chat pipeline integration with local knowledge retrieval
+- [x] Owner-scoped cognitive experience history
+- [x] Episodic indexing of completed chat turns and cross-conversation recall
+- [x] Owner-rated active recall with SM-2-inspired spaced review schedule
+- [x] PDF, DOCX, PPTX, XLSX, TXT, Markdown, RST, CSV, JSON, XML, YAML and HTML ingestion with page/slide-aware chunking
+- [x] Local all-minilm embeddings and pgvector hybrid retrieval
+- [x] Owner-created concepts and provenance-backed typed relations
+- [ ] Safe consolidation/replay jobs with provenance and rollback
+- [ ] Predictive-processing experiments with measurable prediction-error tasks
+- [ ] Learning/evaluation curriculum and regression benchmark
+- [ ] Local language model packaging and offline capability checks
 
 ## Milestone 2 — Intelligence orchestration
 
