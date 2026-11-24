@@ -22,14 +22,23 @@ A pending proposal records the owning `user_id`, exact action type, optional tar
 
 Append-only event records identify `user_id`, actor, action, resource and details. Production hardening should restrict direct table mutation and ship audit exports to independently controlled storage.
 
+## Cognitive memory tables
+
+- `semantic_knowledge` stores owner-taught facts, concepts, procedures, skills, preferences and principles. It includes provenance, a normalized-content hash, confidence, reinforcement count, review status, optional vector embedding and a generated PostgreSQL full-text search vector.
+- `cognitive_experiences` stores owner-scoped lesson-encoding and feedback events, with links to semantic knowledge where applicable.
+- `chat_conversations` and `chat_messages` store the owner-scoped conversational episodes. They remain separate from durable semantic knowledge.
+
 ## Not stored automatically
 
-Chat transcripts are not persisted in the first milestone. Browser page content and screenshots are returned to the current client but are not automatically saved as memories. The owner must explicitly propose any persistent memory addition.
+Documents are not ingested automatically. Browser page content and screenshots are returned to the current client but are not automatically converted into knowledge. The owner must explicitly use the teaching API to store semantic knowledge. Model-generated claims are not silently promoted into durable knowledge.
 
 ## Future additions
 
+- `knowledge_sources` and `knowledge_chunks` for imported documents and source provenance.
+- Local embedding generation and hybrid semantic retrieval over `semantic_knowledge`.
+- Concept graph tables for explicit concept-to-concept relations.
+- Consolidation jobs with reversible, evidence-linked semantic updates.
 - `tasks` and `task_steps` for resumable execution.
 - `skills` and `skill_versions` for evaluated reusable procedures.
-- `knowledge_sources` for imported documents and provenance.
 - `evaluations` for regression tests and capability scores.
-- `devices` and `sessions` for secure multi-device access.
+- `devices` for secure multi-device access.

@@ -164,6 +164,8 @@ def status(_: str = Depends(require_owner)) -> dict:
         "external_model_calls_enabled": enabled and provider.name != "ollama",
         "memory_write_policy": "owner_approval_required",
         "memory_retrieval": "approved_owner_memories_only",
+        "cognitive_architecture": "cognitive_kernel_v0.1",
+        "cognitive_knowledge_store": "owner_scoped_postgresql_full_text",
         "browser_mode": "https_read_only_via_egress_proxy",
     }
 

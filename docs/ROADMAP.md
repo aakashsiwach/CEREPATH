@@ -40,6 +40,25 @@ The first release remains local and single-owner.
 - [ ] Memory export, encrypted backup and restore drills
 - [ ] Semantic embeddings (local model first) and hybrid retrieval
 
+## Milestone 1.1 — Digital Mind cognitive kernel
+
+- [x] Bounded working memory inspired by Baddeley and Hitch
+- [x] Episodic trace hashing and provenance inspired by hippocampal indexing / complementary learning systems
+- [x] Owner-taught semantic knowledge with duplicate-aware reinforcement
+- [x] Goal-directed selective attention and relevance ranking
+- [x] Metacognitive retrieval-coverage reporting
+- [x] Explicit owner feedback and reward-prediction-error metric
+- [x] Incorrect knowledge quarantine and review status
+- [x] Chat pipeline integration with local knowledge retrieval
+- [x] Owner-scoped cognitive experience history
+- [ ] Full document ingestion and source chunking
+- [ ] Local embedding generation and hybrid semantic retrieval
+- [ ] Concept relationships and versioned knowledge graph
+- [ ] Safe consolidation/replay jobs with provenance and rollback
+- [ ] Predictive-processing experiments with measurable prediction-error tasks
+- [ ] Learning/evaluation curriculum and regression benchmark
+- [ ] Local language model packaging and offline capability checks
+
 ## Milestone 2 — Intelligence orchestration
 
 - [x] Provider adapter interface

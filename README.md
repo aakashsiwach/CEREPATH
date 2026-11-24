@@ -2,9 +2,9 @@
 
 **Intelligence, built together.**
 
-Cerepath is a local-first personal AI workspace built around user-owned identity, approved memory, model-independent chat and restricted browser access. The first real chat milestone is implemented: conversations are persisted, recent history is sent to the configured OpenAI-compatible model, and relevant approved memories can be added as bounded context.
+Cerepath is a local-first personal intelligence workspace with a neuroscience-informed **Digital Mind cognitive kernel**. It separates owner-taught semantic knowledge and experience records from the language model, uses bounded working memory and goal-directed attention, and records owner feedback for review. The selected LLM is a replaceable language/reasoning interface, not the source of Cerepath's identity or durable knowledge.
 
-> **Status: early development.** This is a personal, single-owner local application—not a finished autonomous agent or a public multi-user service. Chat uses one configured model provider and non-streaming completions. Semantic/vector retrieval, tool orchestration, browser interaction and production identity are still future work.
+> **Status: early development.** This is a personal, single-owner local application—not a biological brain, conscious system, finished autonomous agent or public multi-user service. The first cognitive kernel is an explicit, testable software architecture inspired by cognitive-science models. It does not reproduce neural tissue, subjective experience or human intelligence.
 
 ## Implemented
 
@@ -15,6 +15,10 @@ Cerepath is a local-first personal AI workspace built around user-owned identity
 - OpenAI-compatible Bynara adapter.
 - OpenAI-compatible Google Gemini Developer API adapter.
 - Optional local Ollama through its OpenAI-compatible API.
+- Neuroscience-informed cognitive kernel: bounded working memory, episodic trace indexing, owner-taught semantic knowledge, deterministic attention ranking, retrieval evidence monitoring and owner feedback signals.
+- Owner-scoped cognitive experiences and semantic knowledge stored in PostgreSQL.
+- Full-text knowledge recall from the local database; pgvector is provisioned but local embeddings are not generated yet.
+- Explicit feedback can move incorrect owner-taught knowledge to a review queue; repeated teaching of identical normalized content reinforces one record rather than duplicating it.
 - Approved-memory retrieval for chat context (bounded lexical matching in this version).
 - Hosted providers receive no approved memories by default; matching memory sharing requires explicit server-side opt-in. Local Ollama can use matching approved memories.
 - No automatic provider fallback; a missing or failing provider returns an explicit error.
@@ -136,7 +140,12 @@ All application endpoints except health and local bootstrap login require an aut
 | GET | `/api/health` | Liveness check |
 | POST | `/api/auth/login` | Local owner bootstrap login |
 | GET | `/api/status` | Selected provider and runtime status |
-| POST | `/api/chat` | Generate and persist one chat turn |
+| POST | `/api/chat` | Generate and persist one chat turn using the cognitive context pipeline |
+| POST | `/api/mind/teach` | Store an explicit owner-taught knowledge item |
+| GET | `/api/mind/knowledge` | List active and review-queued knowledge |
+| GET | `/api/mind/recall?q=...` | Recall relevant owner-taught knowledge |
+| POST | `/api/mind/feedback` | Record helpful/incomplete/incorrect feedback |
+| GET | `/api/mind/state` | Inspect cognitive-kernel counters and configuration |
 | GET | `/api/conversations` | List the owner's conversations |
 | GET | `/api/conversations/{id}/messages` | Load one owner's conversation history |
 | GET | `/api/memories` | List approved memories |
@@ -186,14 +195,14 @@ GitHub Actions validates Python tests, frontend type-check/build, Docker Compose
 ## Known limitations / next milestones
 
 - Chat responses are currently non-streaming.
-- Memory retrieval is lexical and bounded; pgvector embeddings and semantic/hybrid search are not implemented yet.
-- No tool execution, multi-agent orchestration, automatic memory extraction or browser write actions.
+- Cognitive recall currently uses PostgreSQL full-text search and deterministic lexical attention ranking. It is not vector/embedding-based semantic retrieval yet.
+- No document ingestion, local embedding generation, knowledge graph, sleep-like consolidation, automatic memory extraction, tool orchestration or browser write actions.
 - OIDC/passkeys, multi-user registration, PostgreSQL row-level security and device management are not implemented.
 - No encrypted automated backups or restore drills.
 - The browser remains read-only; it cannot click, type, submit forms or sign in.
 - This is not a production security certification. Do not expose the local starter publicly.
 
-Read [Architecture](docs/ARCHITECTURE.md), [Security](docs/SECURITY.md), [Operations](docs/OPERATIONS.md) and the [Roadmap](docs/ROADMAP.md) before extending or deploying it.
+Read [Architecture](docs/ARCHITECTURE.md), [Neuroscience Foundations](docs/NEUROSCIENCE_FOUNDATIONS.md), [Security](docs/SECURITY.md), [Operations](docs/OPERATIONS.md) and the [Roadmap](docs/ROADMAP.md) before extending or deploying it.
 
 ## Community
 

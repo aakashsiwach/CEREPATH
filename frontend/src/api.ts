@@ -18,6 +18,33 @@ export type Memory = {
   created_at: string
 }
 
+export type KnowledgeItem = {
+  id: string
+  knowledge_type: 'fact' | 'concept' | 'procedure' | 'skill' | 'preference' | 'principle'
+  title: string
+  content: string
+  source_type: string
+  source_ref: string | null
+  confidence: number
+  reinforcement_count: number
+  status: 'active' | 'needs_review' | 'superseded' | 'archived'
+  created_at: string
+  updated_at: string
+}
+
+export type MindState = {
+  architecture: string
+  memory_system: string
+  attention_system: string
+  working_memory: string
+  metacognition: string
+  active_knowledge: number
+  needs_review: number
+  experiences: number
+  feedback_events: number
+  consciousness_claim: false
+}
+
 type AuthResponse = {
   authenticated: boolean
   csrf_token: string

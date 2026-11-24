@@ -62,6 +62,24 @@ The browser service creates a disposable Chromium context for each navigation. I
 
 The CONNECT-only proxy resolves the hostname, rejects the entire DNS answer set if any address is non-global, and opens the TCP connection to a validated IP address. This reduces DNS-rebinding/SSRF exposure. It does not inspect encrypted HTTP payloads. Browser request interception remains an additional policy layer, not a guarantee against a compromised browser.
 
+## Digital Mind cognitive architecture
+
+The cognitive kernel is an explicit software architecture inspired by selected neuroscience and cognitive-science models. It is not a biological brain simulation or consciousness claim.
+
+| Cognitive subsystem | Implementation |
+|---|---|
+| Working memory | `BaddeleyWorkingMemory` bounds recent dialogue by item and character budgets |
+| Episodic encoding | `HippocampalIndexer` computes a normalized-content trace hash and preserves lesson provenance |
+| Semantic memory | Owner-taught concepts live in the owner-scoped `semantic_knowledge` table |
+| Selective attention / executive control | `PrefrontalCognitiveController` ranks goal-relevant knowledge |
+| Metacognitive monitoring | `MetacognitiveMonitor` exposes local retrieval coverage, not answer truth |
+| Feedback / reward-prediction-error analogy | `RewardPredictionError` records explicit owner feedback; incorrect records move to review |
+| Integration | `DigitalMind` builds the cognitive context used by the chat pipeline |
+
+The owner explicitly teaches knowledge through `POST /api/mind/teach`. Chat uses local full-text retrieval plus the attention controller when the configured provider is local, or when `REMOTE_PROVIDER_MEMORY_SHARING=true`. This preserves the existing privacy default: hosted Gemini/Bynara providers do not receive approved memories or semantic knowledge unless the owner explicitly opts in. Conversation prompts and bounded chat history are still sent to a hosted provider when one is configured.
+
+The hippocampal/neocortical complementary-learning-systems theory motivates separating experience traces from durable semantic knowledge. The current implementation does not perform neural replay, sleep, biological consolidation or automatic concept extraction. See [Neuroscience Foundations](NEUROSCIENCE_FOUNDATIONS.md) for the evidence map, selected literature and scientific boundaries.
+
 ## Intelligence roadmap
 
 1. Improve retrieval with locally generated embeddings and hybrid ranking.
