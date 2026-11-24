@@ -84,9 +84,17 @@ Owner-taught semantic lessons receive a `learning_schedules` record. `SM2SpacedR
 
 The hippocampal/neocortical complementary-learning-systems theory motivates separating experience traces from durable semantic knowledge. The current implementation does not perform neural replay, sleep, biological consolidation or automatic concept extraction. See [Neuroscience Foundations](NEUROSCIENCE_FOUNDATIONS.md) for the evidence map, selected literature and scientific boundaries.
 
+## Cognitive retrieval evaluation
+
+The initial deterministic evaluation harness lives in `backend/app/intelligence/cognitive/evaluation.py` with synthetic fixtures in `backend/evals/cognitive_retrieval_v1.json`. Run it from `backend/` with `python -m app.intelligence.cognitive.evaluation`.
+
+It reports precision@k, recall@k, mean reciprocal rank, nDCG@k, source-reference fidelity and abstention accuracy. The initial benchmark starts after candidate generation and exercises the deterministic attention/ranking controller. It does not measure database candidate-generation recall, LLM answer correctness, citation entailment, real-user privacy guarantees or biological equivalence. Its synthetic scores are engineering regression signals, not an intelligence score.
+
+The next evaluation increment is an owner-reviewed golden set that checks end-to-end candidate retrieval, source evidence and whether generated answers are supported by cited records. Privacy tests remain separate security gates and must not be inferred from ranking metrics.
+
 ## Intelligence roadmap
 
-1. Build a retrieval evaluation corpus and measure recall quality, source fidelity and privacy boundaries.
+1. Expand the synthetic ranking baseline into an owner-reviewed end-to-end retrieval and answer-evidence evaluation corpus.
 2. Add streaming responses and conversation controls.
 3. Add fast/deep routing only after baseline provider behavior is measurable.
 4. Add bounded tools and agent roles with explicit permissions.

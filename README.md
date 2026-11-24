@@ -189,6 +189,26 @@ All application endpoints except health and local bootstrap login require an aut
 
 OpenAPI docs: `http://localhost:5173/api/docs`.
 
+## Cognitive retrieval benchmark
+
+Cerepath includes a deterministic, offline benchmark for the cognitive kernel's post-retrieval attention/ranking stage. Its synthetic fixtures cover owner-taught semantic knowledge, document passages, episodic memories, distractors with misleadingly high confidence, source-reference checks and a no-local-evidence abstention case.
+
+Run it from the backend directory:
+
+```bash
+python -m app.intelligence.cognitive.evaluation
+```
+
+Run the focused regression tests:
+
+```bash
+pytest -q tests/test_cognitive_evaluation.py
+```
+
+The report includes precision@k, recall@k, mean reciprocal rank, nDCG@k, source-reference fidelity and abstention accuracy. Results are macro-averaged across labelled evidence cases; abstention is reported separately.
+
+**Evaluation boundary:** this first benchmark evaluates deterministic ranking over a supplied candidate pool. It does not yet measure database candidate-generation recall, end-to-end LLM answer correctness, citation entailment, real-user privacy properties, or biological equivalence. The synthetic dataset must not be mistaken for a measured score of human-like intelligence. The next evaluation increment is an owner-reviewed golden set with expected evidence and answer-level checks.
+
 ## Tests
 
 Backend:

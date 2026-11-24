@@ -58,7 +58,8 @@ The first release remains local and single-owner.
 - [x] Owner-created concepts and provenance-backed typed relations
 - [ ] Safe consolidation/replay jobs with provenance and rollback
 - [ ] Predictive-processing experiments with measurable prediction-error tasks
-- [ ] Learning/evaluation curriculum and regression benchmark
+- [x] Initial deterministic synthetic retrieval benchmark for ranking, source-reference fidelity and abstention
+- [ ] Owner-reviewed golden set and end-to-end candidate-generation / answer-evidence evaluation
 - [ ] Local language model packaging and offline capability checks
 
 ## Milestone 2 — Intelligence orchestration
