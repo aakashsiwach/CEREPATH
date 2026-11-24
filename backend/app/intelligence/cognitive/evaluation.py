@@ -44,12 +44,20 @@ def load_cases(dataset_path: Path) -> list[RetrievalEvaluationCase]:
         if case_id in seen_case_ids:
             raise ValueError(f"Duplicate retrieval benchmark case_id: {case_id}")
         if not isinstance(candidates, list) or not isinstance(relevant_ids, list):
-            raise ValueError(f"Case {case_id} must provide candidates and relevant_ids lists.")
+            raise ValueError(
+                f"Case {case_id} must provide candidates and relevant_ids lists."
+            )
         if not isinstance(source_refs, dict):
             raise ValueError(f"Case {case_id} expected_source_refs must be an object.")
 
-        candidate_ids = [str(item.get("id", "")) for item in candidates if isinstance(item, dict)]
-        if len(candidate_ids) != len(candidates) or any(not item_id for item_id in candidate_ids):
+        candidate_ids = [
+            str(item.get("id", ""))
+            for item in candidates
+            if isinstance(item, dict)
+        ]
+        if len(candidate_ids) != len(candidates) or any(
+            not item_id for item_id in candidate_ids
+        ):
             raise ValueError(f"Every candidate in case {case_id} needs a non-empty id.")
         if len(candidate_ids) != len(set(candidate_ids)):
             raise ValueError(f"Case {case_id} contains duplicate candidate ids.")
@@ -113,7 +121,9 @@ def evaluate_case(
     )
     reciprocal_rank = 1.0 / first_relevant_rank if first_relevant_rank else 0.0
 
-    ranked_relevance = [1 if item_id in case.relevant_ids else 0 for item_id in ranked_ids]
+    ranked_relevance = [
+        1 if item_id in case.relevant_ids else 0 for item_id in ranked_ids
+    ]
     ideal_relevance = [1] * min(k, len(case.relevant_ids))
     ideal_dcg = _dcg(ideal_relevance)
     ndcg = _dcg(ranked_relevance) / ideal_dcg if ideal_dcg else None
@@ -144,7 +154,11 @@ def evaluate_case(
         "recall_at_k": round(recall, 4) if recall is not None else None,
         "reciprocal_rank": round(reciprocal_rank, 4),
         "ndcg_at_k": round(ndcg, 4) if ndcg is not None else None,
-        "source_reference_fidelity": round(source_fidelity, 4) if source_fidelity is not None else None,
+        "source_reference_fidelity": (
+            round(source_fidelity, 4)
+            if source_fidelity is not None
+            else None
+        ),
         "abstention_correct": abstention_correct,
     }
 
@@ -179,7 +193,9 @@ def evaluate_dataset(
         "evidence_cases": len(evidence_reports),
         "no_evidence_cases": len(no_evidence_reports),
         "k": k,
-        "precision_at_k": _mean([report["precision_at_k"] for report in evidence_reports]),
+        "precision_at_k": _mean(
+            [report["precision_at_k"] for report in evidence_reports]
+        ),
         "recall_at_k": _mean([
             report["recall_at_k"] for report in evidence_reports
             if report["recall_at_k"] is not None
@@ -217,7 +233,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=backend_root / "evals" / "cognitive_retrieval_v1.json",
         help="Path to a versioned retrieval benchmark JSON file.",
     )
-    parser.add_argument("--k", type=int, default=3, help="Number of ranked results to evaluate.")
+    parser.add_argument(
+        "--k",
+        type=int,
+        default=3,
+        help="Number of ranked results to evaluate.",
+    )
     args = parser.parse_args(argv)
 
     result = evaluate_dataset(load_cases(args.dataset), k=args.k)
