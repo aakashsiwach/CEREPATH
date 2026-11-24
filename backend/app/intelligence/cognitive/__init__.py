@@ -7,6 +7,7 @@ from .hippocampal_indexing import HippocampalIndexer
 from .metacognition import MetacognitiveMonitor
 from .prefrontal_cortex import PrefrontalCognitiveController
 from .prediction_error import RewardPredictionError
+from .spaced_repetition import SM2SpacedRepetitionScheduler
 from .working_memory import BaddeleyWorkingMemory
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "MetacognitiveMonitor",
     "PrefrontalCognitiveController",
     "RewardPredictionError",
+    "SM2SpacedRepetitionScheduler",
 ]

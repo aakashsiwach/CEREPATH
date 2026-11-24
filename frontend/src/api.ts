@@ -71,8 +71,37 @@ export type KnowledgeGraph = {
   relations: KnowledgeRelation[]
 }
 
+export type EpisodicMemory = {
+  id: string
+  conversation_id: string
+  content: string
+  importance_score: number
+  reinforcement_count: number
+  recall_count: number
+  last_seen_at: string
+  last_recalled_at: string | null
+  created_at: string
+}
+
+export type ReviewItem = {
+  knowledge_id: string
+  knowledge_type: string
+  title: string
+  content: string
+  repetition_count: number
+  interval_days: number
+  ease_factor: number
+  lapse_count: number
+  last_grade: number | null
+  due_at: string
+  mastery_score: number
+}
+
 export type MindState = {
   architecture: string
+  episodic_memories?: number
+  due_reviews?: number
+  average_mastery?: number
   embedding_provider?: string
   memory_system: string
   attention_system: string

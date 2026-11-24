@@ -47,3 +47,15 @@ def test_document_memory_migration_adds_owner_scoped_sources_chunks_and_graph():
     assert "CREATE TABLE IF NOT EXISTS knowledge_relations" in sql
     assert "FOREIGN KEY (from_concept_id, user_id)" in sql
     assert "FOREIGN KEY (source_id, user_id)" in sql
+
+
+def test_digital_learning_migration_adds_episodic_memory_and_spaced_reviews():
+    migration = Path(__file__).parents[1] / "app" / "migrations" / "006_episodic_memory_and_learning.sql"
+    sql = migration.read_text(encoding="utf-8")
+    assert "CREATE TABLE IF NOT EXISTS episodic_memories" in sql
+    assert "conversation_episode" in sql
+    assert "embedding VECTOR(384)" in sql
+    assert "CREATE TABLE IF NOT EXISTS learning_schedules" in sql
+    assert "ease_factor NUMERIC(4,2)" in sql
+    assert "mastery_score NUMERIC(4,3)" in sql
+    assert "FOREIGN KEY (conversation_id, user_id)" in sql

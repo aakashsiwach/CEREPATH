@@ -18,6 +18,7 @@ from ..security import require_owner
 from .cognitive.hippocampal_indexing import HippocampalIndexer
 from .cognitive.prefrontal_cortex import PrefrontalCognitiveController
 from .cognitive.prediction_error import RewardPredictionError
+from .cognitive.spaced_repetition import SM2SpacedRepetitionScheduler
 from .document_ingestion import (
     MAX_UPLOAD_BYTES,
     DocumentExtractionError,
@@ -53,6 +54,11 @@ class ConceptInput(BaseModel):
     canonical_name: str = Field(min_length=1, max_length=240)
     description: str = Field(default="", max_length=4_000)
     source_id: UUID | None = None
+
+
+class LearningReviewInput(BaseModel):
+    grade: int = Field(ge=0, le=5)
+    note: str = Field(default="", max_length=2_000)
 
 
 class ConceptRelationInput(BaseModel):
@@ -146,6 +152,14 @@ def teach_knowledge(
                 vector_value,
             ),
         ).fetchone()
+        conn.execute(
+            """
+            INSERT INTO learning_schedules (id, user_id, knowledge_id)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (user_id, knowledge_id) DO NOTHING
+            """,
+            (uuid4(), user_id, knowledge["id"]),
+        )
         conn.execute(
             """
             INSERT INTO cognitive_experiences
@@ -265,6 +279,31 @@ def retrieve_relevant_knowledge(
         item["confidence"] = float(item.get("confidence", 0.85))
         candidates[f"chunk:{item['id']}"] = item
 
+    lexical_episodes = conn.execute(
+        """
+        SELECT id, content, conversation_id, created_at, last_seen_at,
+               'episodic_memory' AS knowledge_type,
+               'conversation' AS source_type,
+               conversation_id::text AS source_ref,
+               'Previous conversation' AS source_title,
+               0.80::numeric AS confidence,
+               reinforcement_count,
+               LEAST(ts_rank_cd(search_vector, websearch_to_tsquery('simple', %s)) * 10.0, 1.0)
+                   AS retrieval_score
+        FROM episodic_memories
+        WHERE user_id = %s
+          AND search_vector @@ websearch_to_tsquery('simple', %s)
+        ORDER BY retrieval_score DESC, last_seen_at DESC
+        LIMIT 40
+        """,
+        (normalized_query, user_id, normalized_query),
+    ).fetchall()
+    for row in lexical_episodes:
+        item = dict(row)
+        item["title"] = "Previous conversation"
+        item["confidence"] = float(item.get("confidence", 0.8))
+        candidates[f"episode:{item['id']}"] = item
+
     if query_vector is not None:
         vector_knowledge = conn.execute(
             """
@@ -281,6 +320,35 @@ def retrieve_relevant_knowledge(
         for row in vector_knowledge:
             item = dict(row)
             key = str(item["id"])
+            if key in candidates:
+                item["retrieval_score"] = max(
+                    float(item["retrieval_score"]),
+                    float(candidates[key].get("retrieval_score", 0.0)),
+                )
+            candidates[key] = item
+
+        vector_episodes = conn.execute(
+            """
+            SELECT id, content, conversation_id, created_at, last_seen_at,
+                   'episodic_memory' AS knowledge_type,
+                   'conversation' AS source_type,
+                   conversation_id::text AS source_ref,
+                   'Previous conversation' AS source_title,
+                   0.80::numeric AS confidence,
+                   reinforcement_count,
+                   GREATEST(1.0 - (embedding <=> %s::vector), 0.0) AS retrieval_score
+            FROM episodic_memories
+            WHERE user_id = %s AND embedding IS NOT NULL
+            ORDER BY embedding <=> %s::vector
+            LIMIT 40
+            """,
+            (query_vector, user_id, query_vector),
+        ).fetchall()
+        for row in vector_episodes:
+            item = dict(row)
+            item["title"] = "Previous conversation"
+            item["confidence"] = float(item.get("confidence", 0.8))
+            key = f"episode:{item['id']}"
             if key in candidates:
                 item["retrieval_score"] = max(
                     float(item["retrieval_score"]),
@@ -325,6 +393,33 @@ def retrieve_relevant_knowledge(
     from .cognitive.metacognition import MetacognitiveMonitor
 
     assessment = MetacognitiveMonitor().assess_retrieval(selected)
+    recalled_episode_ids = [
+        UUID(str(item["id"]))
+        for item in selected
+        if item.get("knowledge_type") == "episodic_memory"
+    ]
+    if recalled_episode_ids:
+        conn.execute(
+            """
+            UPDATE episodic_memories
+            SET recall_count = recall_count + 1,
+                last_recalled_at = NOW(),
+                updated_at = NOW()
+            WHERE user_id = %s AND id = ANY(%s)
+            """,
+            (user_id, recalled_episode_ids),
+        )
+        conn.execute(
+            """
+            INSERT INTO cognitive_experiences
+                (id, user_id, event_type, related_knowledge_id, source_type, details)
+            VALUES (%s, %s, 'recall', NULL, 'episodic_memory', %s::jsonb)
+            """,
+            (
+                uuid4(), user_id,
+                json.dumps({"episodic_memory_ids": [str(item) for item in recalled_episode_ids]}),
+            ),
+        )
     return selected, assessment, embedding_status
 
 
@@ -736,6 +831,214 @@ def create_knowledge_relation(
     return {"relation": _serialize(dict(row))}
 
 
+def store_episodic_memory(
+    conn: Any,
+    *,
+    user_id: UUID,
+    conversation_id: UUID,
+    user_message_id: UUID,
+    assistant_message_id: UUID,
+    user_text: str,
+    assistant_text: str,
+) -> UUID:
+    """Encode one completed dialogue as an owner-scoped episodic memory."""
+    episode_content = (
+        f"User: {user_text.strip()}\nCerepath: {assistant_text.strip()}"
+    )[:14_000]
+    trace = _hippocampus.encode(
+        title="Conversation episode",
+        content=episode_content,
+        episode_type="conversation_episode",
+        source_type="conversation",
+    )
+    vector_value = None
+    try:
+        embedding_provider = LocalOllamaEmbeddingProvider.from_environment()
+    except EmbeddingProviderError:
+        embedding_provider = None
+    if embedding_provider is not None:
+        try:
+            vectors = embedding_provider.embed([episode_content])
+            vector_value = embedding_provider.to_pgvector(vectors[0])
+        except (EmbeddingProviderError, IndexError, ValueError):
+            vector_value = None
+
+    episode = conn.execute(
+        """
+        INSERT INTO episodic_memories (
+            id, user_id, conversation_id, user_message_id, assistant_message_id,
+            content, content_sha256, embedding, importance_score
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s::vector, 0.500)
+        ON CONFLICT (user_id, content_sha256) DO UPDATE SET
+            conversation_id = EXCLUDED.conversation_id,
+            user_message_id = EXCLUDED.user_message_id,
+            assistant_message_id = EXCLUDED.assistant_message_id,
+            reinforcement_count = episodic_memories.reinforcement_count + 1,
+            last_seen_at = NOW(),
+            embedding = COALESCE(EXCLUDED.embedding, episodic_memories.embedding),
+            updated_at = NOW()
+        RETURNING id
+        """,
+        (
+            uuid4(), user_id, conversation_id, user_message_id,
+            assistant_message_id, episode_content, trace.content_sha256, vector_value,
+        ),
+    ).fetchone()
+    episode_id = episode["id"]
+    conn.execute(
+        """
+        INSERT INTO cognitive_experiences
+            (id, user_id, event_type, related_knowledge_id, source_type, details)
+        VALUES (%s, %s, 'conversation_episode', NULL, 'conversation', %s::jsonb)
+        """,
+        (
+            uuid4(), user_id,
+            json.dumps({
+                "episodic_memory_id": str(episode_id),
+                "conversation_id": str(conversation_id),
+                "user_message_id": str(user_message_id),
+                "assistant_message_id": str(assistant_message_id),
+                "content_sha256": trace.content_sha256,
+            }),
+        ),
+    )
+    return episode_id
+
+
+@router.get("/episodic-memories")
+def list_episodic_memories(
+    limit: int = Query(default=50, ge=1, le=200),
+    user_id: UUID = Depends(require_owner),
+) -> dict[str, Any]:
+    with connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, conversation_id, content, importance_score,
+                   reinforcement_count, recall_count, last_seen_at,
+                   last_recalled_at, created_at
+            FROM episodic_memories
+            WHERE user_id = %s
+            ORDER BY last_seen_at DESC
+            LIMIT %s
+            """,
+            (user_id, limit),
+        ).fetchall()
+    return {"items": [_serialize(dict(row)) for row in rows]}
+
+
+@router.get("/reviews/due")
+def list_due_reviews(
+    limit: int = Query(default=30, ge=1, le=100),
+    user_id: UUID = Depends(require_owner),
+) -> dict[str, Any]:
+    with connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT k.id AS knowledge_id, k.knowledge_type, k.title, k.content,
+                   s.repetition_count, s.interval_days, s.ease_factor,
+                   s.lapse_count, s.last_grade, s.due_at, s.mastery_score
+            FROM learning_schedules s
+            JOIN semantic_knowledge k
+              ON k.id = s.knowledge_id AND k.user_id = s.user_id
+            WHERE s.user_id = %s
+              AND s.status = 'active'
+              AND s.due_at <= NOW()
+              AND k.status = 'active'
+            ORDER BY s.due_at ASC
+            LIMIT %s
+            """,
+            (user_id, limit),
+        ).fetchall()
+    return {"items": [_serialize(dict(row)) for row in rows]}
+
+
+@router.post("/reviews/{knowledge_id}")
+def review_knowledge(
+    knowledge_id: UUID,
+    body: LearningReviewInput,
+    user_id: UUID = Depends(require_owner),
+) -> dict[str, Any]:
+    """Record active-recall performance and schedule the next spaced review."""
+    scheduler = SM2SpacedRepetitionScheduler()
+    with connection() as conn:
+        row = conn.execute(
+            """
+            SELECT k.id, s.repetition_count, s.interval_days, s.ease_factor,
+                   s.lapse_count, s.mastery_score
+            FROM semantic_knowledge k
+            JOIN learning_schedules s
+              ON s.knowledge_id = k.id AND s.user_id = k.user_id
+            WHERE k.id = %s AND k.user_id = %s
+              AND k.status = 'active' AND s.status = 'active'
+            FOR UPDATE OF s
+            """,
+            (knowledge_id, user_id),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Active learning item not found.")
+
+        schedule = scheduler.review(
+            grade=body.grade,
+            repetition_count=int(row["repetition_count"]),
+            interval_days=int(row["interval_days"]),
+            ease_factor=float(row["ease_factor"]),
+            lapse_count=int(row["lapse_count"]),
+            mastery_score=float(row["mastery_score"]),
+        )
+        conn.execute(
+            """
+            UPDATE learning_schedules
+            SET repetition_count = %s,
+                interval_days = %s,
+                ease_factor = %s,
+                lapse_count = %s,
+                last_grade = %s,
+                last_reviewed_at = NOW(),
+                due_at = %s,
+                mastery_score = %s,
+                updated_at = NOW()
+            WHERE user_id = %s AND knowledge_id = %s
+            """,
+            (
+                schedule.repetition_count, schedule.interval_days, schedule.ease_factor,
+                schedule.lapse_count, body.grade, schedule.due_at,
+                schedule.mastery_score, user_id, knowledge_id,
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO cognitive_experiences
+                (id, user_id, event_type, related_knowledge_id, source_type, details)
+            VALUES (%s, %s, 'spaced_review', %s, 'owner_retrieval_practice', %s::jsonb)
+            """,
+            (
+                uuid4(), user_id, knowledge_id,
+                json.dumps({
+                    "grade": body.grade,
+                    "note": body.note,
+                    "repetition_count": schedule.repetition_count,
+                    "interval_days": schedule.interval_days,
+                    "ease_factor": schedule.ease_factor,
+                    "lapse_count": schedule.lapse_count,
+                    "mastery_score": schedule.mastery_score,
+                    "next_due_at": schedule.due_at.isoformat(),
+                }),
+            ),
+        )
+
+    return {
+        "knowledge_id": str(knowledge_id),
+        "grade": body.grade,
+        "repetition_count": schedule.repetition_count,
+        "interval_days": schedule.interval_days,
+        "ease_factor": schedule.ease_factor,
+        "lapse_count": schedule.lapse_count,
+        "mastery_score": schedule.mastery_score,
+        "due_at": schedule.due_at.isoformat(),
+    }
+
+
 @router.get("/state")
 def mind_state(user_id: UUID = Depends(require_owner)) -> dict[str, Any]:
     with connection() as conn:
@@ -749,9 +1052,17 @@ def mind_state(user_id: UUID = Depends(require_owner)) -> dict[str, Any]:
                 (SELECT COUNT(*) FROM cognitive_experiences
                  WHERE user_id = %s) AS experiences,
                 (SELECT COUNT(*) FROM cognitive_experiences
-                 WHERE user_id = %s AND event_type = 'feedback') AS feedback_events
+                 WHERE user_id = %s AND event_type = 'feedback') AS feedback_events,
+                (SELECT COUNT(*) FROM episodic_memories
+                 WHERE user_id = %s) AS episodic_memories,
+                (SELECT COUNT(*) FROM learning_schedules s
+                 JOIN semantic_knowledge k ON k.id = s.knowledge_id AND k.user_id = s.user_id
+                 WHERE s.user_id = %s AND s.status = 'active'
+                   AND s.due_at <= NOW() AND k.status = 'active') AS due_reviews,
+                (SELECT COALESCE(AVG(mastery_score), 0) FROM learning_schedules
+                 WHERE user_id = %s AND status = 'active') AS average_mastery
             """,
-            (user_id, user_id, user_id, user_id),
+            (user_id, user_id, user_id, user_id, user_id, user_id, user_id),
         ).fetchone()
     return {
         "architecture": "cognitive_kernel_v0.1",
@@ -763,5 +1074,8 @@ def mind_state(user_id: UUID = Depends(require_owner)) -> dict[str, Any]:
         "needs_review": int(row["needs_review"]),
         "experiences": int(row["experiences"]),
         "feedback_events": int(row["feedback_events"]),
+        "episodic_memories": int(row["episodic_memories"]),
+        "due_reviews": int(row["due_reviews"]),
+        "average_mastery": float(row["average_mastery"]),
         "consciousness_claim": False,
     }

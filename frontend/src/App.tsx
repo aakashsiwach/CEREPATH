@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Activity, ArrowUpRight, BookOpen, BrainCircuit, Check, CircleAlert, Globe, KeyRound, LockKeyhole, LogOut, MessageSquare, Plus, RefreshCw, ShieldCheck, Sparkles, Trash2, X } from 'lucide-react'
-import { api, uploadApi, currentSession, login, logout, type Approval, type Memory, type KnowledgeItem, type MindState, type DocumentSource, type KnowledgeGraph } from './api'
+import { api, uploadApi, currentSession, login, logout, type Approval, type Memory, type KnowledgeItem, type MindState, type DocumentSource, type KnowledgeGraph, type EpisodicMemory, type ReviewItem } from './api'
 
 type Tab = 'chat' | 'mind' | 'memory' | 'browser' | 'approvals'
 type ChatMessage = { id?: string; role: 'user' | 'assistant'; content: string; provider?: string | null; model?: string | null; status?: string; created_at?: string }
@@ -25,6 +25,9 @@ function App() {
   const [mindState, setMindState] = useState<MindState | null>(null)
   const [sources, setSources] = useState<DocumentSource[]>([])
   const [knowledgeGraph, setKnowledgeGraph] = useState<KnowledgeGraph>({ concepts: [], relations: [] })
+  const [episodicMemories, setEpisodicMemories] = useState<EpisodicMemory[]>([])
+  const [dueReviews, setDueReviews] = useState<ReviewItem[]>([])
+  const [revealedReviewIds, setRevealedReviewIds] = useState<Set<string>>(() => new Set())
   const [documentFile, setDocumentFile] = useState<File | null>(null)
   const [conceptName, setConceptName] = useState('')
   const [conceptDescription, setConceptDescription] = useState('')
@@ -46,7 +49,7 @@ function App() {
   const refreshData = useCallback(async () => {
     if (!authenticated || !csrfToken) return
     try {
-      const [memoryData, approvalData, systemStatus, knowledgeData, cognitiveState, sourceData, graphData] = await Promise.all([
+      const [memoryData, approvalData, systemStatus, knowledgeData, cognitiveState, sourceData, graphData, episodeData, reviewData] = await Promise.all([
         api<{ items: Memory[] }>('/memories', csrfToken),
         api<{ items: Approval[] }>('/approvals', csrfToken),
         api<{ status: string; model_calls_enabled: boolean; model_provider: string | null; model: string | null }>('/status', csrfToken),
@@ -54,6 +57,8 @@ function App() {
         api<MindState>('/mind/state', csrfToken),
         api<{ items: DocumentSource[] }>('/mind/sources', csrfToken),
         api<KnowledgeGraph>('/mind/graph', csrfToken),
+        api<{ items: EpisodicMemory[] }>('/mind/episodic-memories', csrfToken),
+        api<{ items: ReviewItem[] }>('/mind/reviews/due', csrfToken),
       ])
       setMemories(memoryData.items)
       setApprovals(approvalData.items)
@@ -61,6 +66,8 @@ function App() {
       setMindState(cognitiveState)
       setSources(sourceData.items)
       setKnowledgeGraph(graphData)
+      setEpisodicMemories(episodeData.items)
+      setDueReviews(reviewData.items)
       setStatus(systemStatus.model_calls_enabled ? `${systemStatus.model_provider} · ${systemStatus.model}` : 'AI provider not configured')
       setError('')
     } catch (err) {
@@ -208,6 +215,24 @@ function App() {
       await refreshData()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not archive source')
+    } finally { setBusy(false) }
+  }
+
+  async function submitLearningReview(knowledgeId: string, grade: number) {
+    setBusy(true)
+    try {
+      await api(`/mind/reviews/${knowledgeId}`, csrfToken, {
+        method: 'POST',
+        body: JSON.stringify({ grade }),
+      })
+      setRevealedReviewIds((current) => {
+        const next = new Set(current)
+        next.delete(knowledgeId)
+        return next
+      })
+      await refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save learning review')
     } finally { setBusy(false) }
   }
 
@@ -392,6 +417,41 @@ function App() {
               <div className="memory-meta"><span>{item.knowledge_type}</span><small>{item.status} · confidence {Math.round(item.confidence * 100)}%</small></div>
               <h4>{item.title}</h4><p>{item.content}</p>
               <div className="memory-actions"><button disabled={busy} onClick={() => void giveKnowledgeFeedback(item.id, 'helpful')}><Check size={14}/> Understood correctly</button><button disabled={busy} className="danger-text" onClick={() => void giveKnowledgeFeedback(item.id, 'incorrect')}>Mark incorrect</button></div>
+            </article>)}</div>}
+          </div>
+        </div>
+
+        <div className="two-column">
+          <div className="panel">
+            <div className="panel-heading"><div><h3>Retrieval practice</h3><p>{dueReviews.length} lessons due · average self-rated mastery {Math.round((mindState?.average_mastery ?? 0) * 100)}%</p></div><Activity size={20}/></div>
+            {dueReviews.length === 0 ? <div className="empty-state"><Check size={22}/><strong>No lessons due</strong><span>Newly taught knowledge appears here for active recall.</span></div> : <div className="memory-list">{dueReviews.map((item) => <article className="memory-card" key={item.knowledge_id}>
+              <div className="memory-meta"><span>{item.knowledge_type}</span><small>{item.repetition_count} successful reviews · {item.lapse_count} lapses</small></div>
+              <h4>{item.title}</h4>
+              {!revealedReviewIds.has(item.knowledge_id) ? (
+                <div className="review-prompt">
+                  <p className="tiny-note">Try to recall the lesson without looking at the answer.</p>
+                  <button className="subtle-button" disabled={busy} onClick={() => setRevealedReviewIds((current) => new Set(current).add(item.knowledge_id))}>Reveal answer</button>
+                </div>
+              ) : (
+                <>
+                  <p>{item.content}</p>
+                  <p className="tiny-note">Rate how well you recalled this lesson. Your rating schedules the next review.</p>
+                  <div className="memory-actions review-actions">
+                    <button disabled={busy} onClick={() => void submitLearningReview(item.knowledge_id, 1)}>Again</button>
+                    <button disabled={busy} onClick={() => void submitLearningReview(item.knowledge_id, 3)}>Hard</button>
+                    <button disabled={busy} onClick={() => void submitLearningReview(item.knowledge_id, 4)}>Good</button>
+                    <button disabled={busy} onClick={() => void submitLearningReview(item.knowledge_id, 5)}>Easy</button>
+                  </div>
+                </>
+              )}
+            </article>)}</div>}
+          </div>
+          <div className="panel">
+            <div className="panel-heading"><div><h3>Episodic memory</h3><p>{episodicMemories.length} saved conversation episodes</p></div><MessageSquare size={20}/></div>
+            {episodicMemories.length === 0 ? <div className="empty-state">Cerepath has not encoded any completed conversations yet.</div> : <div className="memory-list">{episodicMemories.map((episode) => <article className="memory-card" key={episode.id}>
+              <div className="memory-meta"><span>conversation</span><small>{episode.reinforcement_count} repeats · recalled {episode.recall_count} times</small></div>
+              <p>{episode.content}</p>
+              <small className="muted">Last seen {new Date(episode.last_seen_at).toLocaleString()}</small>
             </article>)}</div>}
           </div>
         </div>

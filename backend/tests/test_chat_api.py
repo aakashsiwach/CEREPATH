@@ -41,6 +41,22 @@ def test_memory_context_never_falls_back_to_unrelated_recent_records():
     assert chat_module._select_memories(rows, "Explain database indexing") == []
 
 
+def test_episodic_context_is_marked_as_untrusted_reference_data():
+    messages = chat_module._system_messages(
+        [],
+        [{
+            "knowledge_type": "episodic_memory",
+            "title": "Previous conversation",
+            "content": "We discussed quorum replication.",
+            "source_type": "conversation",
+            "source_ref": "conversation-123",
+        }],
+    )
+    assert "previous conversation episodes" in messages[1]["content"]
+    assert "untrusted" in messages[1]["content"]
+    assert "conversation-123" in messages[1]["content"]
+
+
 class Cursor:
     def __init__(self, row=None, rows=None):
         self.row = row
@@ -63,6 +79,9 @@ class ChatDatabase:
             "content": "Worked on card payment processing.",
         }]
         self.memory_reads = 0
+        self.episodes = {}
+        self.episodic_writes = 0
+        self.episodic_retrieval_reads = 0
 
     def execute(self, query, params=(), **_kwargs):
         normalized = " ".join(query.split()).lower()
@@ -111,6 +130,33 @@ class ChatDatabase:
                     "created_at": datetime.now(timezone.utc),
                 })
             return Cursor()
+
+        if normalized.startswith("insert into episodic_memories"):
+            (
+                episode_id, user_id, conversation_id, user_message_id,
+                assistant_message_id, content, digest, embedding,
+            ) = params
+            self.episodes[str(episode_id)] = {
+                "id": episode_id,
+                "user_id": user_id,
+                "conversation_id": conversation_id,
+                "user_message_id": user_message_id,
+                "assistant_message_id": assistant_message_id,
+                "content": content,
+                "content_sha256": digest,
+                "embedding": embedding,
+                "reinforcement_count": 1,
+                "recall_count": 0,
+            }
+            self.episodic_writes += 1
+            return Cursor(row={"id": episode_id})
+
+        if normalized.startswith("insert into cognitive_experiences"):
+            return Cursor()
+
+        if normalized.startswith("select id, content, conversation_id") and "from episodic_memories" in normalized:
+            self.episodic_retrieval_reads += 1
+            return Cursor(rows=[])
 
         if normalized.startswith("select role, content from ("):
             conversation_id, user_id, limit = params
@@ -193,6 +239,7 @@ def test_chat_persists_messages_and_scopes_conversation_history(monkeypatch):
         yield database
 
     monkeypatch.setattr(chat_module, "connection", fake_connection)
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "disabled")
     monkeypatch.setattr(chat_module, "REMOTE_PROVIDER_MEMORY_SHARING", True)
     monkeypatch.setattr(chat_module, "build_model_provider", lambda: FakeProvider())
     main.app.dependency_overrides[chat_module.require_owner] = lambda: owner_id
@@ -207,6 +254,9 @@ def test_chat_persists_messages_and_scopes_conversation_history(monkeypatch):
         assert result["memory_context_items"] == 1
         assert result["assistant_message"]["content"] == "Here is the answer."
         assert result["assistant_message"]["provider"] == "bynara"
+        assert result["episodic_memory_saved"] is True
+        assert database.episodic_writes == 1
+        assert len(database.episodes) == 1
         assert len(database.messages) == 2
         assert [item["status"] for item in database.messages] == ["complete", "complete"]
 
@@ -232,6 +282,7 @@ def test_remote_provider_does_not_read_memories_by_default(monkeypatch):
         yield database
 
     monkeypatch.setattr(chat_module, "connection", fake_connection)
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "disabled")
     monkeypatch.setattr(chat_module, "REMOTE_PROVIDER_MEMORY_SHARING", False)
     monkeypatch.setattr(chat_module, "build_model_provider", lambda: provider)
     main.app.dependency_overrides[chat_module.require_owner] = lambda: owner_id
@@ -242,8 +293,13 @@ def test_remote_provider_does_not_read_memories_by_default(monkeypatch):
         assert response.status_code == 200
         assert response.json()["memory_context_items"] == 0
         assert database.memory_reads == 0
+        assert database.episodic_retrieval_reads == 0
+        assert database.episodic_writes == 1
+        assert response.json()["episodic_memory_saved"] is True
+        assert len(database.episodes) == 1
         assert all(
             "Banking project" not in item["content"]
+            and "We discussed quorum replication" not in item["content"]
             for item in provider.messages
         )
     finally:
@@ -260,6 +316,7 @@ def test_local_provider_can_use_matching_memories_without_remote_opt_in(monkeypa
         yield database
 
     monkeypatch.setattr(chat_module, "connection", fake_connection)
+    monkeypatch.setenv("EMBEDDING_PROVIDER", "disabled")
     monkeypatch.setattr(chat_module, "REMOTE_PROVIDER_MEMORY_SHARING", False)
     monkeypatch.setattr(chat_module, "build_model_provider", lambda: provider)
     main.app.dependency_overrides[chat_module.require_owner] = lambda: owner_id

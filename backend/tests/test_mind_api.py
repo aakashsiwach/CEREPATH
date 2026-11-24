@@ -29,6 +29,8 @@ class MindDatabase:
     def __init__(self):
         self.knowledge = {}
         self.experiences = []
+        self.schedules = {}
+        self.episodes = {}
 
     def execute(self, query, params=(), **_kwargs):
         normalized = " ".join(query.split()).lower()
@@ -73,10 +75,74 @@ class MindDatabase:
                 self.knowledge[str(knowledge_id)] = row
             return Cursor(row=row)
 
+        if normalized.startswith("insert into learning_schedules"):
+            schedule_id, user_id, knowledge_id = params
+            self.schedules[str(knowledge_id)] = {
+                "id": schedule_id,
+                "user_id": user_id,
+                "knowledge_id": knowledge_id,
+                "repetition_count": 0,
+                "interval_days": 0,
+                "ease_factor": 2.5,
+                "lapse_count": 0,
+                "mastery_score": 0.0,
+            }
+            return Cursor()
+
+        if normalized.startswith("insert into episodic_memories"):
+            (
+                episode_id, user_id, conversation_id, user_message_id,
+                assistant_message_id, content, digest, embedding,
+            ) = params
+            existing = next(
+                (item for item in self.episodes.values()
+                 if item["user_id"] == user_id and item["content_sha256"] == digest),
+                None,
+            )
+            if existing:
+                existing["conversation_id"] = conversation_id
+                existing["user_message_id"] = user_message_id
+                existing["assistant_message_id"] = assistant_message_id
+                existing["reinforcement_count"] += 1
+                existing["last_seen_at"] = now
+                existing["embedding"] = embedding or existing.get("embedding")
+                row = existing
+            else:
+                row = {
+                    "id": episode_id,
+                    "user_id": user_id,
+                    "conversation_id": conversation_id,
+                    "user_message_id": user_message_id,
+                    "assistant_message_id": assistant_message_id,
+                    "content": content,
+                    "content_sha256": digest,
+                    "embedding": embedding,
+                    "importance_score": 0.5,
+                    "reinforcement_count": 1,
+                    "recall_count": 0,
+                    "last_seen_at": now,
+                    "last_recalled_at": None,
+                    "created_at": now,
+                }
+                self.episodes[str(episode_id)] = row
+            return Cursor(row={"id": row["id"]})
+
         if normalized.startswith("insert into cognitive_experiences"):
-            experience_id, user_id, knowledge_id, details = params
-            event_type = "lesson_encoded" if "'lesson_encoded'" in normalized else "feedback"
-            source_type = "owner_taught" if event_type == "lesson_encoded" else "owner_feedback"
+            event_type = next(
+                (name for name in ("conversation_episode", "spaced_review", "lesson_encoded", "feedback", "recall")
+                 if f"'{name}'" in normalized),
+                "feedback",
+            )
+            if event_type in {"conversation_episode", "recall"}:
+                experience_id, user_id, details = params
+                knowledge_id = None
+            else:
+                experience_id, user_id, knowledge_id, details = params
+            source_type = (
+                "owner_taught" if event_type == "lesson_encoded"
+                else "owner_feedback" if event_type == "feedback"
+                else event_type
+            )
             self.experiences.append({
                 "id": experience_id,
                 "user_id": user_id,
@@ -86,6 +152,46 @@ class MindDatabase:
                 "details": details,
             })
             return Cursor()
+
+        if normalized.startswith("select id, content, conversation_id") and "from episodic_memories" in normalized:
+            query, user_id, _query_again = params
+            terms = set(query.lower().split())
+            rows = [
+                {
+                    **item,
+                    "knowledge_type": "episodic_memory",
+                    "source_type": "conversation",
+                    "source_ref": str(item["conversation_id"]),
+                    "source_title": "Previous conversation",
+                    "confidence": 0.8,
+                    "retrieval_score": 0.8,
+                }
+                for item in self.episodes.values()
+                if item["user_id"] == user_id
+                and any(term in item["content"].lower() for term in terms)
+            ]
+            return Cursor(rows=rows)
+
+        if normalized.startswith("update episodic_memories"):
+            user_id, episode_ids = params
+            for episode_id in episode_ids:
+                item = self.episodes.get(str(episode_id))
+                if item and item["user_id"] == user_id:
+                    item["recall_count"] += 1
+                    item["last_recalled_at"] = now
+            return Cursor()
+
+        if normalized.startswith("select id, conversation_id, content"):
+            user_id, limit = params
+            rows = [
+                {key: value for key, value in item.items()
+                 if key in {"id", "conversation_id", "content", "importance_score",
+                            "reinforcement_count", "recall_count", "last_seen_at",
+                            "last_recalled_at", "created_at"}}
+                for item in self.episodes.values() if item["user_id"] == user_id
+            ]
+            rows.sort(key=lambda item: item["last_seen_at"], reverse=True)
+            return Cursor(rows=rows[:limit])
 
         if normalized.startswith("select id, knowledge_type, title, content, source_type") and "and search_vector @@" not in normalized:
             user_id, limit = params
@@ -128,15 +234,66 @@ class MindDatabase:
                 item["updated_at"] = now
             return Cursor()
 
+        if normalized.startswith("select k.id as knowledge_id"):
+            user_id, limit = params
+            rows = []
+            for schedule in self.schedules.values():
+                knowledge = self.knowledge.get(str(schedule["knowledge_id"]))
+                if knowledge and schedule["user_id"] == user_id and knowledge["status"] == "active":
+                    rows.append({
+                        "knowledge_id": knowledge["id"],
+                        "knowledge_type": knowledge["knowledge_type"],
+                        "title": knowledge["title"],
+                        "content": knowledge["content"],
+                        **schedule,
+                        "due_at": now,
+                        "last_grade": None,
+                    })
+            return Cursor(rows=rows[:limit])
+
+        if normalized.startswith("select k.id, s.repetition_count"):
+            knowledge_id, user_id = params
+            schedule = self.schedules.get(str(knowledge_id))
+            knowledge = self.knowledge.get(str(knowledge_id))
+            if not schedule or not knowledge or schedule["user_id"] != user_id or knowledge["status"] != "active":
+                return Cursor()
+            return Cursor(row={
+                "id": knowledge_id,
+                **schedule,
+            })
+
+        if normalized.startswith("update learning_schedules"):
+            repetition_count, interval_days, ease_factor, lapse_count, grade, due_at, mastery_score, user_id, knowledge_id = params
+            schedule = self.schedules.get(str(knowledge_id))
+            if schedule and schedule["user_id"] == user_id:
+                schedule.update({
+                    "repetition_count": repetition_count,
+                    "interval_days": interval_days,
+                    "ease_factor": float(ease_factor),
+                    "lapse_count": lapse_count,
+                    "last_grade": grade,
+                    "due_at": due_at,
+                    "mastery_score": float(mastery_score),
+                })
+            return Cursor()
+
         if normalized.startswith("select") and "as active_knowledge" in normalized:
-            user_id, _u2, _u3, _u4 = params
+            user_id, _u2, _u3, _u4, _u5, _u6, _u7 = params
             owned = [item for item in self.knowledge.values() if item["user_id"] == user_id]
             owner_experiences = [item for item in self.experiences if item["user_id"] == user_id]
+            owner_schedules = [item for item in self.schedules.values() if item["user_id"] == user_id]
+            owner_episodes = [item for item in self.episodes.values() if item["user_id"] == user_id]
             return Cursor(row={
                 "active_knowledge": sum(item["status"] == "active" for item in owned),
                 "needs_review": sum(item["status"] == "needs_review" for item in owned),
                 "experiences": len(owner_experiences),
                 "feedback_events": sum(item["event_type"] == "feedback" for item in owner_experiences),
+                "episodic_memories": len(owner_episodes),
+                "due_reviews": sum(item["repetition_count"] == 0 for item in owner_schedules),
+                "average_mastery": (
+                    sum(item["mastery_score"] for item in owner_schedules) / len(owner_schedules)
+                    if owner_schedules else 0.0
+                ),
             })
 
         return Cursor()
@@ -227,5 +384,68 @@ def test_owner_feedback_quarantines_incorrect_knowledge(monkeypatch):
         state = client.get("/api/mind/state")
         assert state.json()["needs_review"] == 1
         assert state.json()["feedback_events"] == 1
+    finally:
+        main.app.dependency_overrides.clear()
+
+
+
+def test_completed_dialogue_is_saved_as_episodic_memory_and_recalled(monkeypatch):
+    database = MindDatabase()
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    user_message_id = uuid4()
+    assistant_message_id = uuid4()
+    episode_id = mind_module.store_episodic_memory(
+        database,
+        user_id=owner_id,
+        conversation_id=conversation_id,
+        user_message_id=user_message_id,
+        assistant_message_id=assistant_message_id,
+        user_text="I am learning distributed systems",
+        assistant_text="We discussed quorum and replication.",
+    )
+    assert str(episode_id) in database.episodes
+    assert database.episodes[str(episode_id)]["content_sha256"]
+
+    client = _client(monkeypatch, database, owner_id)
+    try:
+        recalled = client.get("/api/mind/recall", params={"q": "quorum replication"})
+        assert recalled.status_code == 200
+        assert any(item["knowledge_type"] == "episodic_memory" for item in recalled.json()["items"])
+        assert database.episodes[str(episode_id)]["recall_count"] == 1
+
+        listing = client.get("/api/mind/episodic-memories")
+        assert listing.status_code == 200
+        assert len(listing.json()["items"]) == 1
+    finally:
+        main.app.dependency_overrides.clear()
+
+
+def test_spaced_review_schedules_next_retrieval_and_updates_mastery(monkeypatch):
+    database = MindDatabase()
+    owner_id = uuid4()
+    client = _client(monkeypatch, database, owner_id)
+    try:
+        taught = client.post("/api/mind/teach", json={
+            "knowledge_type": "concept",
+            "title": "Hippocampal memory",
+            "content": "The hippocampus supports formation of new episodic memories.",
+        })
+        assert taught.status_code == 201
+        knowledge_id = taught.json()["knowledge"]["id"]
+
+        due = client.get("/api/mind/reviews/due")
+        assert due.status_code == 200
+        assert len(due.json()["items"]) == 1
+
+        reviewed = client.post(f"/api/mind/reviews/{knowledge_id}", json={
+            "grade": 4,
+            "note": "I recalled the concept correctly.",
+        })
+        assert reviewed.status_code == 200
+        assert reviewed.json()["interval_days"] == 1
+        assert reviewed.json()["repetition_count"] == 1
+        assert reviewed.json()["mastery_score"] > 0
+        assert any(item["event_type"] == "spaced_review" for item in database.experiences)
     finally:
         main.app.dependency_overrides.clear()

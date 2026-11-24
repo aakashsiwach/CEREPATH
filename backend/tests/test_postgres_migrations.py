@@ -104,12 +104,18 @@ def test_identity_migration_backfills_existing_records_and_is_repeatable(monkeyp
         relation_table = conn.execute(
             "SELECT to_regclass('public.knowledge_relations') IS NOT NULL"
         ).fetchone()[0]
+        episodic_table = conn.execute(
+            "SELECT to_regclass('public.episodic_memories') IS NOT NULL"
+        ).fetchone()[0]
+        learning_table = conn.execute(
+            "SELECT to_regclass('public.learning_schedules') IS NOT NULL"
+        ).fetchone()[0]
 
     assert memory[0] == owner_id
     assert approval[0] == owner_id
     assert audit[0] == owner_id
     assert owner_count == 1
-    assert migration_count == 4
+    assert migration_count == 5
     assert session_table is True
     assert conversation_table is True
     assert message_table is True
@@ -119,3 +125,5 @@ def test_identity_migration_backfills_existing_records_and_is_repeatable(monkeyp
     assert chunk_table is True
     assert concept_table is True
     assert relation_table is True
+    assert episodic_table is True
+    assert learning_table is True

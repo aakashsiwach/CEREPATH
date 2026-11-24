@@ -25,8 +25,10 @@ Append-only event records identify `user_id`, actor, action, resource and detail
 ## Cognitive memory tables
 
 - `semantic_knowledge` stores owner-taught facts, concepts, procedures, skills, preferences and principles. It includes provenance, a normalized-content hash, confidence, reinforcement count, review status, optional vector embedding and a generated PostgreSQL full-text search vector.
-- `cognitive_experiences` stores owner-scoped lesson-encoding and feedback events, with links to semantic knowledge where applicable.
-- `chat_conversations` and `chat_messages` store the owner-scoped conversational episodes. They remain separate from durable semantic knowledge.
+- `cognitive_experiences` stores owner-scoped lesson-encoding, recall, feedback, conversation-episode and spaced-review events, with links to semantic knowledge where applicable.
+- `episodic_memories` stores completed user/assistant dialogue episodes, source message/conversation foreign keys, a content hash, optional local embedding, importance, reinforcement and recall counters.
+- `learning_schedules` stores owner-rated retrieval-practice history, SM-2 interval/ease/lapse state, next due time and self-rated mastery separately from factual confidence.
+- `chat_conversations` and `chat_messages` remain the source dialogue log; episodic memories are a derived, searchable index that links back to the source messages.
 
 ## Documents and knowledge graph
 
@@ -39,7 +41,7 @@ Local embeddings are optional. With `EMBEDDING_PROVIDER=ollama`, the API uses th
 
 ## Not stored automatically
 
-Documents require an explicit owner upload. Browser page content and screenshots are not automatically converted into knowledge. Model-generated claims and relationships are not silently promoted into durable knowledge. The owner must explicitly create concept relationships.
+Documents require an explicit owner upload. Completed dialogue is automatically indexed as local episodic memory; the source chat remains in the chat log. Browser page content and screenshots are not automatically converted into knowledge. Model-generated claims and relationships are not silently promoted into semantic knowledge. The owner must explicitly create concept relationships and rate retrieval-practice performance.
 
 ## Future additions
 

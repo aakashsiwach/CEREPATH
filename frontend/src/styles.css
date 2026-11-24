@@ -10,3 +10,7 @@
 .mind-workspace input[type=file]{font-size:11px;color:var(--muted)}
 .memory-actions a{font-size:11px;color:#9dbfff;text-decoration:none}
 .memory-actions a:hover{text-decoration:underline}
+
+.review-actions{display:flex;flex-wrap:wrap;gap:12px}
+.review-actions button{border:1px solid var(--border);border-radius:7px;padding:6px 10px;background:#16253d;color:#b9cbea}
+.review-actions button:hover:not(:disabled){border-color:#6f9be8;background:#203657}

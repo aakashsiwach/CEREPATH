@@ -168,7 +168,9 @@ def status(_: str = Depends(require_owner)) -> dict:
         "memory_retrieval": "approved_owner_memories_only",
         "embedding_provider": os.getenv("EMBEDDING_PROVIDER", "disabled").strip().lower(),
         "cognitive_architecture": "cognitive_kernel_v0.1",
-        "cognitive_knowledge_store": "owner_scoped_postgresql_full_text",
+        "cognitive_knowledge_store": "owner_scoped_postgresql_full_text_and_pgvector",
+        "episodic_memory": "conversation_episodes_indexed_locally",
+        "learning_system": "owner_rated_sm2_spaced_retrieval",
         "browser_mode": "https_read_only_via_egress_proxy",
     }
 

@@ -20,6 +20,9 @@ Cerepath implements **cognitive analogies and testable computational mechanisms*
 | Metacognition | Flavell (1979); Nelson & Narens (1990) | `MetacognitiveMonitor` exposes retrieval coverage and missing evidence | Retrieval coverage is not answer truth probability or self-awareness |
 | Sleep and systems consolidation | Rasch & Born (2013); Klinzing, Niethard & Born (2019) | Research basis for future replay/consolidation jobs | Cerepath does not sleep; scheduled database work is only a computational analogy |
 | Reconsolidation | Nader, Schafe & LeDoux (2000) | Incorrect owner-flagged knowledge moves to `needs_review`; feedback remains in experience history | The cited experiment concerns reactivated fear memories in rats; it does not establish that every memory updates this way |
+| Episodic recall | Tulving (1972); McClelland et al. (1995) | Completed dialogue is retained as a source-linked episode and can be recalled across conversations | A stored dialogue record is not a hippocampal engram; no neural replay is simulated |
+| Retrieval practice | Karpicke & Roediger (2008) | Owner attempts recall, reveals the answer, and rates performance | Owner ratings are not objective tests of memory or intelligence |
+| Spaced practice | Cepeda et al. (2006) | `SM2SpacedRepetitionScheduler` sets review intervals based on self-rated retrieval success | The SM-2 algorithm is an engineering heuristic; it is not a biological model or a personalized clinical learning prescription |
 | Synaptic plasticity and cell assemblies | Hebb (1949); Seung (2000) | Repeated teaching increments reinforcement count; corrections remain traceable | No artificial synapses, neuron model or biological plasticity is implemented |
 | Neuroscience-inspired AI | Hassabis et al. (2017) | Overall research-to-engineering approach | Inspiration is not replication |
 
@@ -28,6 +31,8 @@ Cerepath implements **cognitive analogies and testable computational mechanisms*
 - **Working memory:** recent conversation context is constrained by item and character budgets before model prompting.
 - **Hippocampal indexing analogy:** normalized lesson content gets a stable SHA-256 trace to make repeated owner teaching idempotent and preserve provenance.
 - **Semantic memory:** owner-taught facts, concepts, procedures, skills, preferences and principles are stored separately from transient conversation turns. Uploaded learning materials retain original bytes, extracted text, source hashes and chunk/page provenance.
+- **Episodic memory:** completed conversations are encoded as owner-scoped episodes linked to the original chat messages. Lexical and optional local-vector recall can retrieve previous experiences, and recall counters are updated.
+- **Retrieval practice and spacing:** owner-rated recall schedules use a transparent SM-2-inspired interval heuristic. The mastery value is a self-report signal and not a factual confidence score.
 - **Local semantic retrieval:** optional Ollama embeddings (`all-minilm`, 384 dimensions) complement PostgreSQL full-text ranking. Without local Ollama, text retrieval still works; no remote embedding service is used.
 - **Knowledge graph:** canonical concepts and typed relations are persisted separately. Relations require an explicit owner action and preserve evidence/source references; the software does not silently invent concept edges.
 - **Prefrontal attention analogy:** a deterministic relevance controller combines lexical overlap, database retrieval score, confidence and reinforcement count. Relevance dominates; an unrelated record is not selected just because its confidence is high.
@@ -57,6 +62,8 @@ Cerepath implements **cognitive analogies and testable computational mechanisms*
 19. Hebb, D. O. (1949). *The Organization of Behavior: A Neuropsychological Theory*. Wiley.
 20. Seung, H. S. (2000). Half a century of Hebb. *Nature Neuroscience*, 3, 1166. https://doi.org/10.1038/81430
 21. Hassabis, D., Kumaran, D., Summerfield, C., & Botvinick, M. (2017). Neuroscience-Inspired Artificial Intelligence. *Neuron*, 95(2), 245–258. https://doi.org/10.1016/j.neuron.2017.06.011
+22. Karpicke, J. D., & Roediger, H. L. (2008). The critical importance of retrieval for learning. *Science*, 319(5865), 966–968. https://doi.org/10.1126/science.1152408
+23. Cepeda, N. J., Pashler, H., Vul, E., Wixted, J. T., & Rohrer, D. (2006). Distributed practice in verbal recall tasks: A review and quantitative synthesis. *Psychological Bulletin*, 132(3), 354–380. https://doi.org/10.1037/0033-2909.132.3.354
 
 ## Deliberate non-implementations
 
@@ -64,4 +71,4 @@ The following are research topics, not current product capabilities: predictive 
 
 ## Milestone status
 
-The current cognitive-kernel release implements bounded working memory, episodic trace hashing/provenance, owner-taught semantic knowledge, document ingestion and chunking, optional local embeddings, lexical/vector hybrid recall, owner-managed concept relationships, deterministic attention ranking, explicit reward-prediction-error feedback, and retrieval-evidence monitoring. It does not implement a biological neural network, autonomous self-modification, sleep-like replay, or consciousness.
+The current cognitive-kernel release implements bounded working memory, source-linked episodic memory, owner-taught semantic knowledge, document ingestion and chunking, optional local embeddings, lexical/vector hybrid recall, owner-managed concept relationships, deterministic attention ranking, explicit feedback, retrieval-evidence monitoring and user-rated spaced retrieval practice. It does not implement a biological neural network, autonomous self-modification, sleep-like replay, or consciousness.

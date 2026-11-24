@@ -51,7 +51,9 @@ The first release remains local and single-owner.
 - [x] Incorrect knowledge quarantine and review status
 - [x] Chat pipeline integration with local knowledge retrieval
 - [x] Owner-scoped cognitive experience history
-- [x] PDF, DOCX, TXT, Markdown, RST, CSV and HTML ingestion with page-aware chunking
+- [x] Episodic indexing of completed chat turns and cross-conversation recall
+- [x] Owner-rated active recall with SM-2-inspired spaced review schedule
+- [x] PDF, DOCX, PPTX, XLSX, TXT, Markdown, RST, CSV, JSON, XML, YAML and HTML ingestion with page/slide-aware chunking
 - [x] Local all-minilm embeddings and pgvector hybrid retrieval
 - [x] Owner-created concepts and provenance-backed typed relations
 - [ ] Safe consolidation/replay jobs with provenance and rollback
