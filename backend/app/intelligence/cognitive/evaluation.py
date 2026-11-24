@@ -213,9 +213,9 @@ def evaluate_dataset(
     }
     return {
         "evaluation_scope": (
-            "Deterministic post-retrieval attention/ranking only. Candidate generation, "
-            "LLM answer correctness, biological equivalence, and real-user privacy "
-            "properties are not measured by this synthetic benchmark."
+            "Deterministic post-retrieval attention/ranking only. "
+            "Candidate generation, LLM answer correctness, biological equivalence, "
+            "and real-user privacy properties are not measured by this benchmark."
         ),
         "summary": summary,
         "case_results": reports,
