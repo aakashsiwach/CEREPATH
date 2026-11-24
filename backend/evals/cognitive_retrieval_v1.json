@@ -1,0 +1,239 @@
+{
+  "version": 1,
+  "description": "Synthetic, non-personal cases for the deterministic attention/ranking stage. Candidate records are fixtures, not user memories.",
+  "cases": [
+    {
+      "case_id": "semantic-java-collections",
+      "goal": "Explain Java collection interfaces List Set Map and Queue.",
+      "candidates": [
+        {
+          "id": "java-collections-core",
+          "title": "Java collections framework interfaces",
+          "content": "Java collection interfaces include List Set Map and Queue, each representing a different data-structure contract.",
+          "source_type": "owner_taught",
+          "source_ref": "owner-notes/java-collections",
+          "confidence": 0.9,
+          "reinforcement_count": 3,
+          "retrieval_score": 0.78
+        },
+        {
+          "id": "java-collections-examples",
+          "title": "Examples of Java List Set Map and Queue",
+          "content": "Java List preserves order, Set stores unique elements, Map stores key-value pairs, and Queue models pending work.",
+          "source_type": "document",
+          "source_ref": "document:java-language-notes",
+          "confidence": 0.84,
+          "reinforcement_count": 1,
+          "retrieval_score": 0.72
+        },
+        {
+          "id": "kitchen-shopping-list",
+          "title": "Cooking and shopping list",
+          "content": "A grocery list and meal preparation checklist for the week.",
+          "source_type": "document",
+          "source_ref": "document:meal-planning",
+          "confidence": 0.99,
+          "reinforcement_count": 5,
+          "retrieval_score": 0.02
+        }
+      ],
+      "relevant_ids": ["java-collections-core", "java-collections-examples"],
+      "expected_source_refs": {
+        "java-collections-core": "owner-notes/java-collections",
+        "java-collections-examples": "document:java-language-notes"
+      }
+    },
+    {
+      "case_id": "episodic-rabbitmq-decision",
+      "goal": "Why did the payment team select RabbitMQ for reliable asynchronous payment processing?",
+      "candidates": [
+        {
+          "id": "payment-rabbitmq-decision",
+          "title": "Payment processing architecture decision",
+          "content": "The team selected RabbitMQ for durable queues acknowledgements retry handling and asynchronous decoupling in the payment processing flow.",
+          "source_type": "episodic_memory",
+          "source_ref": "conversation:payment-architecture",
+          "confidence": 0.86,
+          "reinforcement_count": 2,
+          "retrieval_score": 0.75
+        },
+        {
+          "id": "rabbitmq-delivery-notes",
+          "title": "RabbitMQ reliability and delivery notes",
+          "content": "Durable queues acknowledgements publisher confirms and controlled retries help reliable asynchronous message delivery.",
+          "source_type": "document",
+          "source_ref": "document:rabbitmq-reliability",
+          "confidence": 0.91,
+          "reinforcement_count": 1,
+          "retrieval_score": 0.82
+        },
+        {
+          "id": "kafka-streaming-overview",
+          "title": "Kafka streaming overview",
+          "content": "Kafka topics partitions and consumer groups support event streaming and asynchronous data pipelines.",
+          "source_type": "document",
+          "source_ref": "document:kafka-overview",
+          "confidence": 0.99,
+          "reinforcement_count": 5,
+          "retrieval_score": 0.18
+        }
+      ],
+      "relevant_ids": ["payment-rabbitmq-decision", "rabbitmq-delivery-notes"],
+      "expected_source_refs": {
+        "payment-rabbitmq-decision": "conversation:payment-architecture",
+        "rabbitmq-delivery-notes": "document:rabbitmq-reliability"
+      }
+    },
+    {
+      "case_id": "document-deployment-rollback",
+      "goal": "Find the documented rollback steps for deploying Cerepath.",
+      "candidates": [
+        {
+          "id": "cerepath-rollback-runbook",
+          "title": "Cerepath deployment rollback procedure",
+          "content": "For a failed deployment stop the affected services restore the previous image and database snapshot when required then verify the health endpoint.",
+          "source_type": "document",
+          "source_ref": "document:cerepath-operations",
+          "confidence": 0.93,
+          "reinforcement_count": 1,
+          "retrieval_score": 0.83
+        },
+        {
+          "id": "cerepath-rollback-incident",
+          "title": "Previous Cerepath deployment incident",
+          "content": "The incident record documents a deployment rollback to the previous known-good release and post-rollback health checks.",
+          "source_type": "episodic_memory",
+          "source_ref": "conversation:cerepath-deployment-incident",
+          "confidence": 0.82,
+          "reinforcement_count": 1,
+          "retrieval_score": 0.71
+        },
+        {
+          "id": "generic-container-build",
+          "title": "Container image build process",
+          "content": "Build and tag a Docker image then publish it to a registry for later deployment.",
+          "source_type": "document",
+          "source_ref": "document:container-build",
+          "confidence": 0.98,
+          "reinforcement_count": 4,
+          "retrieval_score": 0.12
+        }
+      ],
+      "relevant_ids": ["cerepath-rollback-runbook", "cerepath-rollback-incident"],
+      "expected_source_refs": {
+        "cerepath-rollback-runbook": "document:cerepath-operations",
+        "cerepath-rollback-incident": "conversation:cerepath-deployment-incident"
+      }
+    },
+    {
+      "case_id": "tenant-isolation-rls",
+      "goal": "How does PostgreSQL row level security protect tenant isolation?",
+      "candidates": [
+        {
+          "id": "postgres-rls-tenant-guide",
+          "title": "PostgreSQL row level security and tenant isolation",
+          "content": "Row level security policies restrict which PostgreSQL rows a tenant can read or modify using the authenticated owner identity.",
+          "source_type": "document",
+          "source_ref": "document:postgres-rls-guide",
+          "confidence": 0.9,
+          "reinforcement_count": 2,
+          "retrieval_score": 0.79
+        },
+        {
+          "id": "cerepath-owner-scope-episode",
+          "title": "Cerepath owner scoped data isolation",
+          "content": "Application queries include the authenticated user id so one owner's memories and conversations are not returned to another tenant.",
+          "source_type": "episodic_memory",
+          "source_ref": "conversation:tenant-isolation-design",
+          "confidence": 0.83,
+          "reinforcement_count": 1,
+          "retrieval_score": 0.76
+        },
+        {
+          "id": "java-role-permissions",
+          "title": "Java role based permissions",
+          "content": "A web application can assign roles and permissions to users for access to application features.",
+          "source_type": "document",
+          "source_ref": "document:java-security",
+          "confidence": 1.0,
+          "reinforcement_count": 5,
+          "retrieval_score": 0.0
+        }
+      ],
+      "relevant_ids": ["postgres-rls-tenant-guide", "cerepath-owner-scope-episode"],
+      "expected_source_refs": {
+        "postgres-rls-tenant-guide": "document:postgres-rls-guide",
+        "cerepath-owner-scope-episode": "conversation:tenant-isolation-design"
+      }
+    },
+    {
+      "case_id": "spaced-retrieval-lapse",
+      "goal": "What happens after I fail a spaced retrieval review?",
+      "candidates": [
+        {
+          "id": "review-lapse-policy",
+          "title": "Retrieval review lapse policy",
+          "content": "A failed recall resets the repetition sequence increments the lapse counter and schedules another attempt after a short interval.",
+          "source_type": "owner_taught",
+          "source_ref": "owner-notes:learning-scheduler",
+          "confidence": 0.9,
+          "reinforcement_count": 2,
+          "retrieval_score": 0.88
+        },
+        {
+          "id": "active-recall-scheduler",
+          "title": "Spaced retrieval active recall schedule",
+          "content": "The scheduler uses owner-rated retrieval practice results to calculate the next review interval and track recall lapses.",
+          "source_type": "document",
+          "source_ref": "document:retrieval-practice",
+          "confidence": 0.86,
+          "reinforcement_count": 1,
+          "retrieval_score": 0.81
+        },
+        {
+          "id": "sleep-memory-background",
+          "title": "Sleep and memory background",
+          "content": "Sleep is associated with memory processing and several theories of systems consolidation.",
+          "source_type": "document",
+          "source_ref": "document:sleep-memory-review",
+          "confidence": 0.96,
+          "reinforcement_count": 3,
+          "retrieval_score": 0.05
+        }
+      ],
+      "relevant_ids": ["review-lapse-policy", "active-recall-scheduler"],
+      "expected_source_refs": {
+        "review-lapse-policy": "owner-notes:learning-scheduler",
+        "active-recall-scheduler": "document:retrieval-practice"
+      }
+    },
+    {
+      "case_id": "no-local-evidence-abstention",
+      "goal": "Which auditory cortex circuit implements sensory prediction error processing in Cerepath?",
+      "candidates": [
+        {
+          "id": "frontend-theme-notes",
+          "title": "Frontend theme configuration",
+          "content": "The application theme uses CSS tokens for spacing typography and panel backgrounds.",
+          "source_type": "document",
+          "source_ref": "document:frontend-theme",
+          "confidence": 1.0,
+          "reinforcement_count": 5,
+          "retrieval_score": 0.0
+        },
+        {
+          "id": "local-backup-notes",
+          "title": "Local backup procedure",
+          "content": "Create a database backup and periodically verify that a restore can be completed.",
+          "source_type": "owner_taught",
+          "source_ref": "owner-notes:backups",
+          "confidence": 0.99,
+          "reinforcement_count": 5,
+          "retrieval_score": 0.0
+        }
+      ],
+      "relevant_ids": [],
+      "expected_source_refs": {}
+    }
+  ]
+}
