@@ -195,15 +195,15 @@ Cerepath includes a deterministic, offline benchmark for the cognitive kernel's 
 
 Run it from the backend directory:
 
-\`\`\`bash
+```bash
 python -m app.intelligence.cognitive.evaluation
-\`\`\`
+```
 
 Run the focused regression tests:
 
-\`\`\`bash
+```bash
 pytest -q tests/test_cognitive_evaluation.py
-\`\`\`
+```
 
 The report includes precision@k, recall@k, mean reciprocal rank, nDCG@k, source-reference fidelity and abstention accuracy. Results are macro-averaged across labelled evidence cases; abstention is reported separately.
 
