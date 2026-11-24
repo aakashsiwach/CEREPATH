@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import fmean
@@ -70,7 +71,10 @@ def load_cases(dataset_path: Path) -> list[RetrievalEvaluationCase]:
 
 
 def _dcg(relevance: Sequence[int]) -> float:
-    return sum(value / __import__("math").log2(index + 2) for index, value in enumerate(relevance))
+    return sum(
+        value / math.log2(index + 2)
+        for index, value in enumerate(relevance)
+    )
 
 
 def _mean(values: Sequence[float]) -> float:
@@ -140,7 +144,7 @@ def evaluate_case(
         "recall_at_k": round(recall, 4) if recall is not None else None,
         "reciprocal_rank": round(reciprocal_rank, 4),
         "ndcg_at_k": round(ndcg, 4) if ndcg is not None else None,
-        "source_fidelity": round(source_fidelity, 4) if source_fidelity is not None else None,
+        "source_reference_fidelity": round(source_fidelity, 4) if source_fidelity is not None else None,
         "abstention_correct": abstention_correct,
     }
 
@@ -191,7 +195,15 @@ def evaluate_dataset(
             if no_evidence_reports else None
         ),
     }
-    return {"summary": summary, "case_results": reports}
+    return {
+        "evaluation_scope": (
+            "Deterministic post-retrieval attention/ranking only. Candidate generation, "
+            "LLM answer correctness, biological equivalence, and real-user privacy "
+            "properties are not measured by this synthetic benchmark."
+        ),
+        "summary": summary,
+        "case_results": reports,
+    }
 
 
 def main(argv: Sequence[str] | None = None) -> int:
