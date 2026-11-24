@@ -61,8 +61,8 @@ class PrefrontalCognitiveController:
             if overlap <= 0 and database_score <= 0:
                 continue
             attention_score = (
-                0.75 * overlap
-                + 0.15 * database_score
+                0.55 * overlap
+                + 0.35 * database_score
                 + 0.07 * provenance_confidence
                 + 0.03 * reinforcement
             )

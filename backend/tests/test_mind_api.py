@@ -37,7 +37,7 @@ class MindDatabase:
         if normalized.startswith("insert into semantic_knowledge"):
             (
                 knowledge_id, user_id, knowledge_type, title, content,
-                source_ref, digest, confidence,
+                source_ref, digest, confidence, embedding,
             ) = params
             existing = next(
                 (item for item in self.knowledge.values()
@@ -49,6 +49,7 @@ class MindDatabase:
                 existing["knowledge_type"] = knowledge_type
                 existing["source_ref"] = source_ref or existing["source_ref"]
                 existing["confidence"] = max(existing["confidence"], float(confidence))
+                existing["embedding"] = embedding or existing.get("embedding")
                 existing["reinforcement_count"] += 1
                 existing["updated_at"] = now
                 row = existing
@@ -63,6 +64,7 @@ class MindDatabase:
                     "source_ref": source_ref,
                     "content_sha256": digest,
                     "confidence": float(confidence),
+                    "embedding": embedding,
                     "reinforcement_count": 1,
                     "status": "active",
                     "created_at": now,
@@ -170,7 +172,7 @@ def test_owner_can_teach_and_recall_local_knowledge(monkeypatch):
         assert recalled.status_code == 200
         assert len(recalled.json()["items"]) == 1
         assert recalled.json()["items"][0]["title"] == "Java Collections"
-        assert recalled.json()["evidence_state"] == "retrieved_owner_taught_knowledge"
+        assert recalled.json()["evidence_state"] == "strong_retrieval_match"
 
         state = client.get("/api/mind/state")
         assert state.status_code == 200

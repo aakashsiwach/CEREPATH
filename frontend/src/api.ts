@@ -32,8 +32,48 @@ export type KnowledgeItem = {
   updated_at: string
 }
 
+export type DocumentSource = {
+  id: string
+  title: string
+  filename: string
+  file_extension: string
+  media_type: string
+  byte_size: number
+  status: 'processed' | 'needs_review' | 'archived'
+  extraction_metadata: Record<string, unknown>
+  created_at: string
+  chunk_count: number
+  embedded_chunk_count: number
+}
+
+export type KnowledgeConcept = {
+  id: string
+  canonical_name: string
+  description: string
+  source_id: string | null
+}
+
+export type KnowledgeRelation = {
+  id: string
+  from_concept_id: string
+  from_name: string
+  to_concept_id: string
+  to_name: string
+  relation_type: string
+  evidence: string
+  source_id: string | null
+  confidence: number
+  owner_verified: boolean
+}
+
+export type KnowledgeGraph = {
+  concepts: KnowledgeConcept[]
+  relations: KnowledgeRelation[]
+}
+
 export type MindState = {
   architecture: string
+  embedding_provider?: string
   memory_system: string
   attention_system: string
   working_memory: string
@@ -86,6 +126,16 @@ export async function api<T>(path: string, csrfToken: string, init: RequestInit 
     ...init,
     credentials: 'include',
     headers,
+  })
+  return responseBody<T>(response)
+}
+
+export async function uploadApi<T>(path: string, csrfToken: string, body: FormData): Promise<T> {
+  const response = await fetch(`/api${path}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'X-CSRF-Token': csrfToken },
+    body,
   })
   return responseBody<T>(response)
 }

@@ -4,3 +4,9 @@
 
 .stack-form select{width:100%;background:#0c1527;border:1px solid #2a3954;color:var(--text);border-radius:8px;padding:11px 12px;outline:none;font-size:13px}
 .stack-form select:focus{border-color:#6f9be8;box-shadow:0 0 0 3px #6f9be822}
+
+.divider-space{height:1px;background:var(--border);margin:22px 0}
+.mind-workspace{display:flex;flex-direction:column;gap:18px}
+.mind-workspace input[type=file]{font-size:11px;color:var(--muted)}
+.memory-actions a{font-size:11px;color:#9dbfff;text-decoration:none}
+.memory-actions a:hover{text-decoration:underline}

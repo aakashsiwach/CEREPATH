@@ -19,6 +19,9 @@ Cerepath is a local-first personal intelligence workspace with a neuroscience-in
 - Owner-scoped cognitive experiences and semantic knowledge stored in PostgreSQL.
 - Full-text knowledge recall from the local database; pgvector is provisioned but local embeddings are not generated yet.
 - Explicit feedback can move incorrect owner-taught knowledge to a review queue; repeated teaching of identical normalized content reinforces one record rather than duplicating it.
+- Owner document ingestion for PDF, DOCX, PPTX, XLSX, TXT, Markdown, RST, CSV, JSON, XML, YAML and HTML. Original bytes remain in PostgreSQL, with extracted text, overlapping chunks, SHA-256 deduplication and PDF page provenance.
+- Optional local Ollama embeddings (`all-minilm`, 384 dimensions) for semantic recall; PostgreSQL full-text recall remains available when embeddings are disabled or unavailable.
+- Owner-managed concept graph with explicit, source-linked relationships; no automatic model-invented edges.
 - Approved-memory retrieval for chat context (bounded lexical matching in this version).
 - Hosted providers receive no approved memories by default; matching memory sharing requires explicit server-side opt-in. Local Ollama can use matching approved memories.
 - No automatic provider fallback; a missing or failing provider returns an explicit error.
@@ -86,6 +89,26 @@ AI_HTTP_PROXY=
 
 The API container maps `host.docker.internal` to the host gateway for Docker Engine on Linux. Ollama requests bypass the public egress proxy and target the local host runtime.
 
+### Local document embeddings
+
+Document ingestion works with full-text search even if no embedding model is installed. For semantic vector search, run Ollama on the host and install the 384-dimensional embedding model:
+
+```bash
+ollama pull all-minilm
+```
+
+Then set these values in `.env`:
+
+```dotenv
+EMBEDDING_PROVIDER=ollama
+OLLAMA_EMBEDDING_BASE_URL=http://host.docker.internal:11434
+OLLAMA_EMBEDDING_MODEL=all-minilm
+```
+
+Embedding requests go directly to the local Ollama host and do not use Gemini, Bynara or a hosted embedding API. Keep `REMOTE_PROVIDER_MEMORY_SHARING=false` to prevent retrieved memories and document passages from being added to hosted model prompts. With sharing disabled, hosted LLMs still receive the current prompt and bounded conversation history, but not local knowledge records.
+
+Supported document types are PDF, DOCX, TXT, Markdown, RST, CSV and HTML. Scanned PDFs without selectable text need OCR and are rejected rather than silently indexed as empty. Each upload is limited to 20 MiB and one million extracted characters. The original file, extracted text and chunk provenance are retained in PostgreSQL; duplicate files are detected by SHA-256.
+
 ### Disable model calls
 
 ```dotenv
@@ -146,6 +169,13 @@ All application endpoints except health and local bootstrap login require an aut
 | GET | `/api/mind/recall?q=...` | Recall relevant owner-taught knowledge |
 | POST | `/api/mind/feedback` | Record helpful/incomplete/incorrect feedback |
 | GET | `/api/mind/state` | Inspect cognitive-kernel counters and configuration |
+| POST | `/api/mind/documents` | Ingest a local document and index its text |
+| GET | `/api/mind/sources` | List ingested knowledge sources |
+| GET | `/api/mind/sources/{id}/download` | Download the preserved original source |
+| POST | `/api/mind/sources/{id}/archive` | Exclude a source from recall without deleting its original |
+| GET | `/api/mind/graph` | List owner-managed concepts and relations |
+| POST | `/api/mind/concepts` | Create or update a concept |
+| POST | `/api/mind/relations` | Create an owner-verified concept relation |
 | GET | `/api/conversations` | List the owner's conversations |
 | GET | `/api/conversations/{id}/messages` | Load one owner's conversation history |
 | GET | `/api/memories` | List approved memories |
@@ -195,8 +225,9 @@ GitHub Actions validates Python tests, frontend type-check/build, Docker Compose
 ## Known limitations / next milestones
 
 - Chat responses are currently non-streaming.
-- Cognitive recall currently uses PostgreSQL full-text search and deterministic lexical attention ranking. It is not vector/embedding-based semantic retrieval yet.
-- No document ingestion, local embedding generation, knowledge graph, sleep-like consolidation, automatic memory extraction, tool orchestration or browser write actions.
+- Document and chunk recall uses PostgreSQL full-text search, with optional local Ollama vector similarity and hybrid ranking. The vector model is configured independently of the chat LLM.
+- Concept relationships are owner-created/verified. Automatic concept extraction, contradiction resolution and sleep-like consolidation remain future work.
+- No automatic memory extraction from conversations, broad tool orchestration or browser write actions.
 - OIDC/passkeys, multi-user registration, PostgreSQL row-level security and device management are not implemented.
 - No encrypted automated backups or restore drills.
 - The browser remains read-only; it cannot click, type, submit forms or sign in.

@@ -92,14 +92,30 @@ def test_identity_migration_backfills_existing_records_and_is_repeatable(monkeyp
         experience_table = conn.execute(
             "SELECT to_regclass('public.cognitive_experiences') IS NOT NULL"
         ).fetchone()[0]
+        source_table = conn.execute(
+            "SELECT to_regclass('public.knowledge_sources') IS NOT NULL"
+        ).fetchone()[0]
+        chunk_table = conn.execute(
+            "SELECT to_regclass('public.knowledge_chunks') IS NOT NULL"
+        ).fetchone()[0]
+        concept_table = conn.execute(
+            "SELECT to_regclass('public.knowledge_concepts') IS NOT NULL"
+        ).fetchone()[0]
+        relation_table = conn.execute(
+            "SELECT to_regclass('public.knowledge_relations') IS NOT NULL"
+        ).fetchone()[0]
 
     assert memory[0] == owner_id
     assert approval[0] == owner_id
     assert audit[0] == owner_id
     assert owner_count == 1
-    assert migration_count == 3
+    assert migration_count == 4
     assert session_table is True
     assert conversation_table is True
     assert message_table is True
     assert semantic_table is True
     assert experience_table is True
+    assert source_table is True
+    assert chunk_table is True
+    assert concept_table is True
+    assert relation_table is True

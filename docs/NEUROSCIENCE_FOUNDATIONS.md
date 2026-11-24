@@ -11,7 +11,7 @@ Cerepath implements **cognitive analogies and testable computational mechanisms*
 | Cognitive topic | Research foundation | Cerepath implementation | Scientific boundary |
 |---|---|---|---|
 | Working memory | Baddeley & Hitch (1974); Baddeley (2000, 2012) | `BaddeleyWorkingMemory`: bounded recent dialogue context | Item/character budgets are engineering limits, not neural capacity measurements |
-| Episodic and semantic memory | Tulving (1972) | `HippocampalIndexer` preserves lesson episode identity/provenance; `semantic_knowledge` stores owner-taught concepts | Database rows and content hashes are not hippocampal engrams |
+| Episodic and semantic memory | Tulving (1972) | `HippocampalIndexer` preserves lesson episode identity/provenance; `semantic_knowledge` stores owner-taught concepts; `knowledge_sources` and `knowledge_chunks` preserve document episodes and passages | Database rows and content hashes are not hippocampal engrams |
 | Complementary learning systems | McClelland, McNaughton & O'Reilly (1995); O'Reilly et al. (2014) | Separate experience traces from durable semantic records; design boundary for future offline consolidation | No hippocampal-neocortical circuit, neural replay or gradual cortical learning is simulated |
 | Selective attention | Desimone & Duncan (1995); Lindsay (2020) | `PrefrontalCognitiveController` ranks relevant records under a context budget | Deterministic ranking is not neural biased competition |
 | Executive control | Miller & Cohen (2001); Miyake et al. (2000) | Goal-conditioned context selection and distinct feedback/evidence checks | Not a full model of executive function |
@@ -27,7 +27,9 @@ Cerepath implements **cognitive analogies and testable computational mechanisms*
 
 - **Working memory:** recent conversation context is constrained by item and character budgets before model prompting.
 - **Hippocampal indexing analogy:** normalized lesson content gets a stable SHA-256 trace to make repeated owner teaching idempotent and preserve provenance.
-- **Semantic memory:** owner-taught facts, concepts, procedures, skills, preferences and principles are stored separately from transient conversation turns.
+- **Semantic memory:** owner-taught facts, concepts, procedures, skills, preferences and principles are stored separately from transient conversation turns. Uploaded learning materials retain original bytes, extracted text, source hashes and chunk/page provenance.
+- **Local semantic retrieval:** optional Ollama embeddings (`all-minilm`, 384 dimensions) complement PostgreSQL full-text ranking. Without local Ollama, text retrieval still works; no remote embedding service is used.
+- **Knowledge graph:** canonical concepts and typed relations are persisted separately. Relations require an explicit owner action and preserve evidence/source references; the software does not silently invent concept edges.
 - **Prefrontal attention analogy:** a deterministic relevance controller combines lexical overlap, database retrieval score, confidence and reinforcement count. Relevance dominates; an unrelated record is not selected just because its confidence is high.
 - **Metacognitive monitoring:** retrieval is labelled strong, partial, weak or absent. These labels describe retrieval coverage only.
 - **Feedback signal:** explicit owner feedback produces an observed-minus-expected reward metric. Incorrect knowledge is quarantined for review, not silently rewritten.
@@ -62,4 +64,4 @@ The following are research topics, not current product capabilities: predictive 
 
 ## Milestone status
 
-The current cognitive-kernel release implements bounded working memory, episodic trace hashing/provenance, owner-taught semantic knowledge, deterministic attention ranking, explicit reward-prediction-error feedback, and retrieval-evidence monitoring. It does not implement document ingestion, embeddings, a biological neural network, autonomous self-modification, sleep, or consciousness.
+The current cognitive-kernel release implements bounded working memory, episodic trace hashing/provenance, owner-taught semantic knowledge, document ingestion and chunking, optional local embeddings, lexical/vector hybrid recall, owner-managed concept relationships, deterministic attention ranking, explicit reward-prediction-error feedback, and retrieval-evidence monitoring. It does not implement a biological neural network, autonomous self-modification, sleep-like replay, or consciousness.

@@ -27,13 +27,13 @@ class MetacognitiveMonitor:
                 evidence_state="no_local_evidence",
                 retrieved_items=0,
                 best_attention_score=0.0,
-                explanation="No matching owner-taught knowledge was retrieved.",
+                explanation="No matching local owner knowledge or document passages were retrieved.",
             )
 
         best_score = max(float(item.get("attention_score", 0.0)) for item in retrieved)
         if best_score >= 0.70:
             state = "strong_retrieval_match"
-            explanation = "The local knowledge store contains a strong lexical/context match."
+            explanation = "The local knowledge store contains a strong lexical or semantic match."
         elif best_score >= 0.35:
             state = "partial_retrieval_match"
             explanation = "Some relevant local knowledge was retrieved; coverage may be incomplete."
