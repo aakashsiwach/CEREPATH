@@ -180,9 +180,9 @@ def evaluate_dataset(
         report for report in reports if not report["relevant_ids"]
     ]
     source_scores = [
-        report["source_fidelity"]
+        report["source_reference_fidelity"]
         for report in evidence_reports
-        if report["source_fidelity"] is not None
+        if report["source_reference_fidelity"] is not None
     ]
     correct_abstentions = sum(
         report["abstention_correct"] is True for report in no_evidence_reports
@@ -205,7 +205,7 @@ def evaluate_dataset(
             report["ndcg_at_k"] for report in evidence_reports
             if report["ndcg_at_k"] is not None
         ]),
-        "source_fidelity": _mean(source_scores),
+        "source_reference_fidelity": _mean(source_scores),
         "abstention_accuracy": (
             round(correct_abstentions / len(no_evidence_reports), 4)
             if no_evidence_reports else None
